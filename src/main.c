@@ -69,6 +69,7 @@ static bool end_computing(void) {
 		return true;
 	}
 
+
 	return false;
 }
 
