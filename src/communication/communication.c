@@ -116,12 +116,10 @@ void ParallelScheduleNewEvent(unsigned int gid_receiver, simtime_t timestamp, un
 		event.rendezvous_mark = current_evt->rendezvous_mark;
 	}
 
-	if(event_size > MAX_EVENT_SIZE) {
-		rootsim_error(true, "Event size exceeds MAX_EVENT_SIZE: %d\n", event_size);
-	}
-
 	if (event_content != NULL) {
-		memcpy(&event.event_content, event_content, event_size);
+		event.payload = allocamemoria(event.receiver, event_size);
+		
+		memcpy(&event.payload, event_content, event_size);
 	}
 
 	insert_outgoing_msg(&event);
@@ -141,7 +139,7 @@ void ParallelScheduleNewEvent(unsigned int gid_receiver, simtime_t timestamp, un
 * @param lid The Logical Process Id
 */
 void send_antimessages(unsigned int lid, simtime_t after_simtime) {
-	msg_hdr_t *anti_msg,
+	msg_t *anti_msg,
 		  *anti_msg_next;
 
 	msg_t msg;
@@ -341,19 +339,13 @@ void send_outgoing_msgs(unsigned int lid) {
 
 	register unsigned int i = 0;
 	msg_t *msg;
-	msg_hdr_t msg_hdr;
 
 	for(i = 0; i < LPS[lid]->outgoing_buffer.size; i++) {
 		msg = &LPS[lid]->outgoing_buffer.outgoing_msgs[i];
 		Send(msg);
 
 		// Register the message in the sender's output queue, for antimessage management
-		msg_hdr.sender = msg->sender;
-		msg_hdr.receiver = msg->receiver;
-		msg_hdr.timestamp = msg->timestamp;
-		msg_hdr.send_time = msg->send_time;
-		msg_hdr.mark = msg->mark;
-		(void)list_insert(msg->sender, LPS[msg->sender]->queue_out, send_time, &msg_hdr);
+		(void)list_insert(msg->sender, LPS[msg->sender]->queue_out, send_time, msg);
 	}
 
 	LPS[lid]->outgoing_buffer.size = 0;

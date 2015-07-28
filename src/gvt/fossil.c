@@ -52,7 +52,7 @@ static unsigned long long snapshot_cycles;
 */
 void fossil_collection(unsigned int lid, simtime_t time_barrier) {
 	state_t *state;
-	msg_t *last_kept_event;
+	msg_t *last_kept_event, *actual;
 	double committed_events;
 
 	time_barrier = 0.7 * time_barrier;
@@ -67,6 +67,13 @@ void fossil_collection(unsigned int lid, simtime_t time_barrier) {
 
 	// Determine queue pruning horizon
 	last_kept_event = list_head(LPS[lid]->queue_states)->last_event;
+	actual = last_kept_event;
+
+	//libero la memoria usata per il payload
+	while(actual!=NULL){
+		deallocamemoria(actual);
+		actual = list_prev(actual);
+	}
 
 	// Truncate the input queue, accounting for the event which is pointed by the lastly kept state
 	committed_events = (double)list_trunc_before(lid, LPS[lid]->queue_in, timestamp, last_kept_event->timestamp);

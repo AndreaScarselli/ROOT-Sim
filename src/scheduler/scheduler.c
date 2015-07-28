@@ -182,7 +182,7 @@ static void LP_main_loop(void *args) {
 		timer_start(event_timer);
 
 		switch_to_application_mode();
-		ProcessEvent[current_lp](LidToGid(current_lp), current_evt->timestamp, current_evt->type, current_evt->event_content, current_evt->size, current_state);
+		ProcessEvent[current_lp](LidToGid(current_lp), current_evt->timestamp, current_evt->type, current_evt->payload, current_evt->size, current_state);
 		switch_to_platform_mode();
 
 		int delta_event_timer = timer_value_micro(event_timer);
@@ -239,7 +239,7 @@ void initialize_LP(unsigned int lp) {
 
 	// Initialize the queues
 	LPS[lp]->queue_in = new_list(lp, msg_t);
-	LPS[lp]->queue_out = new_list(lp, msg_hdr_t);
+	LPS[lp]->queue_out = new_list(lp, msg_t);
 	LPS[lp]->queue_states = new_list(lp, state_t);
 	LPS[lp]->bottom_halves = new_list(lp, msg_t);
 	LPS[lp]->rendezvous_queue = new_list(lp, msg_t);
@@ -297,7 +297,8 @@ void initialize_worker_thread(void) {
 
 		// Copy the relevant string pointers to the INIT event payload
 		if(model_parameters.size > 0) {
-			memcpy(init_event.event_content, model_parameters.arguments, model_parameters.size * sizeof(char *));
+			init_event.payload= allocamemoria(init_event.receiver, model_parameters.size * sizeof(char *));
+			memcpy(init_event.payload, model_parameters.arguments, model_parameters.size * sizeof(char *));
 		}
 
 		(void)list_insert_head(LPS_bound[t]->lid, LPS_bound[t]->queue_in, &init_event);

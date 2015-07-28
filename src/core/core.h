@@ -68,9 +68,6 @@
 /// Maximum number of LPs the simulator will handle
 #define MAX_LPs		8192		// This is 2^20
 
-/// Maximum event size (in bytes)
-#define MAX_EVENT_SIZE	128
-
 
 // XXX: this should be moved somewhere else...
 #define VERBOSE_INFO	1700
@@ -138,27 +135,27 @@ typedef struct _msg_t {
 	// Kernel's information
 	unsigned int   		sender;
 	unsigned int   		receiver;
-	int   			type;
-	simtime_t		timestamp;
-	simtime_t		send_time;
+	int   				type;
+	simtime_t			timestamp;
+	simtime_t			send_time;
 	message_kind_t		message_kind;
 	unsigned long long	mark;	/// Unique identifier of the message, used for antimessages
 	unsigned long long	rendezvous_mark;	/// Unique identifier of the message, used for rendez-vous events
 	// Application informations
-	char event_content[MAX_EVENT_SIZE];
-	int size;
+	char* 				payload;;
+	int 				size;
 } msg_t;
 
 
 /// Message envelope definition. This is used to handle the output queue and stores information needed to generate antimessages
-typedef struct _msg_hdr_t {
+/*typedef struct _msg_hdr_t {
 	// Kernel's information
 	unsigned int   		sender;
 	unsigned int   		receiver;
 	simtime_t		timestamp;
 	simtime_t		send_time;
 	unsigned long long	mark;
-} msg_hdr_t;
+} msg_hdr_t;*/
 
 
 

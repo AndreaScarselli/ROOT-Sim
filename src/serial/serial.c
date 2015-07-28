@@ -29,10 +29,6 @@ void SerialScheduleNewEvent(unsigned int rcv, simtime_t stamp, unsigned int even
 		rootsim_error(true, "LP %d is trying to send events in the past. Current time: %f, scheduled time: %f\n", current_lp, current_lvt, stamp);
 	}
 
-	if(event_size > MAX_EVENT_SIZE) {
-		rootsim_error(true, "Trying to schedule an event too large. Maximum size is %d, requested is %d. Recompile changing MAX_EVENT_SIZE\n", MAX_EVENT_SIZE, event_size);
-	}
-
 	// Populate the message data structure
 	event = rsalloc(sizeof(msg_t));
 	bzero(event, sizeof(msg_t));
@@ -42,8 +38,11 @@ void SerialScheduleNewEvent(unsigned int rcv, simtime_t stamp, unsigned int even
 	event->send_time = current_lvt;
 	event->type = event_type;
 	event->size = event_size;
-	memcpy(event->event_content, event_content, event_size);
-
+	//qua credo che posso farlo tranquillamente con rsalloc()
+	if(event_content!=NULL){
+		event->payload = rsalloc(event_size);
+		memcpy(event->payload, event_content, event_size);
+	}
 	// Put the event in the Calenda Queue
 	calqueue_put(stamp, event);
 }
@@ -109,7 +108,7 @@ void serial_simulation(void) {
 		current_lp = event->receiver;
 		current_lvt = event->timestamp;
 		timer_start(serial_event_execution);
-		ProcessEvent_light(current_lp, current_lvt, event->type, event->event_content, event->size, serial_states[current_lp]);
+		ProcessEvent_light(current_lp, current_lvt, event->type, event->payload, event->size, serial_states[current_lp]);
 
 		statistics_post_lp_data(current_lp, STAT_EVENT, 1.0);
 		statistics_post_lp_data(current_lp, STAT_EVENT_TIME, timer_value_seconds(serial_event_execution) );

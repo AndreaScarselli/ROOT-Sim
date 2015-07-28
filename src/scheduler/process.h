@@ -108,7 +108,7 @@ typedef struct _LP_state {
 	msg_t		*bound;
 
 	/// Output messages queue
-	list(msg_hdr_t)	queue_out;
+	list(msg_t)	queue_out;
 
 	/// Saved states queue
 	list(state_t)	queue_states;

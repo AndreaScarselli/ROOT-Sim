@@ -172,26 +172,11 @@ void process_bottom_halves(void) {
 	msg_t *msg_to_process;
 	msg_t *matched_msg;
 
-	//~ list(msg_t) processing;
-
 	for(i = 0; i < n_prc_per_thread; i++) {
-
-		//~ spin_lock(&LPS_bound[i]->lock);
-		//~ processing = LPS_bound[i]->bottom_halves;
-		//~ LPS_bound[i]->bottom_halves = new_list(msg_t);
-		//~ spin_unlock(&LPS_bound[i]->lock);
-
-		//~ while(!list_empty(processing)) {
-			//~ msg_to_process = list_head(processing);
 
 		while((msg_to_process = (msg_t *)get_BH(LPS_bound[i]->lid)) != NULL) {
 
 			lid_receiver = msg_to_process->receiver;
-
-			// TODO: reintegrare per ECS
-			//~ if(!receive_control_msg(msg_to_process)) {
-				//~ goto expunge_msg;
-			//~ }
 
 			switch (msg_to_process->message_kind) {
 
@@ -234,10 +219,14 @@ void process_bottom_halves(void) {
 							LPS[lid_receiver]->bound = list_prev(matched_msg);
 							LPS[lid_receiver]->state = LP_STATE_ROLLBACK;
 						}
-
+						
+						//free sul payload del messaggio che deve essere eliminato
+						deallocamemoria(matched_msg);
+						
 						// Delete the matched message
 						list_delete_by_content(matched_msg->sender, LPS[lid_receiver]->queue_in, matched_msg);
 
+						//dealloca un node buffer che era stato allocato in get_BH
 						list_deallocate_node_buffer(LPS_bound[i]->lid, msg_to_process);
 					}
 
@@ -255,23 +244,10 @@ void process_bottom_halves(void) {
 					}
 					break;
 
-				// TODO: reintegrare per ECS
-				// It's a control message
-				//~ case other:
-					// Check if it is an anti control message
-					//~ if(!anti_control_message(msg_to_process)) {
-						//~ goto expunge_msg;
-					//~ }
-					//~ break;
-
 				default:
 					rootsim_error(true, "Received a message which is neither positive nor negative. Aborting...\n");
 			}
-
-		    //~ expunge_msg:
-			//~ list_pop(msg_to_process->sender, processing);
 		}
-		//~ rsfree(processing);
 	}
 
 	// We have processed all in transit messages.
