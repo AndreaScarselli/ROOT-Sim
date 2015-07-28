@@ -221,7 +221,7 @@ void process_bottom_halves(void) {
 						}
 						
 						//free sul payload del messaggio che deve essere eliminato
-						deallocamemoria(matched_msg);
+						//deallocamemoria(matched_msg);
 						
 						// Delete the matched message
 						list_delete_by_content(matched_msg->sender, LPS[lid_receiver]->queue_in, matched_msg);

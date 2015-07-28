@@ -256,6 +256,7 @@ mdt_entry* get_new_mdt_entry(int sobj){
 	m_map = &maps[sobj]; 
 
 	if (m_map->active >= m_map->size){
+		puts("pieni");
 		goto bad_new_mdt_entry;
 	}
 

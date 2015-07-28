@@ -122,6 +122,8 @@ char *GetParameterString(void *args, char *name) {
 
 
 bool IsParameterPresent(void *args, char *name) {
+	if(args==NULL || name == NULL)
+		return false;
 	return (seek_param(args, name) != -1);
 }
 

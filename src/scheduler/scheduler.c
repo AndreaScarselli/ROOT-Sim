@@ -47,6 +47,7 @@
 #include <communication/communication.h>
 #include <gvt/gvt.h>
 #include <statistics/statistics.h>
+#include <mm/allocator.h> //per allocate_segment
 
 
 /// Maintain LPs' simulation and execution states
@@ -297,7 +298,7 @@ void initialize_worker_thread(void) {
 
 		// Copy the relevant string pointers to the INIT event payload
 		if(model_parameters.size > 0) {
-			init_event.payload= allocamemoria(init_event.receiver, model_parameters.size * sizeof(char *));
+			init_event.payload= allocate_segment(init_event.receiver, model_parameters.size * sizeof(char *));
 			memcpy(init_event.payload, model_parameters.arguments, model_parameters.size * sizeof(char *));
 		}
 

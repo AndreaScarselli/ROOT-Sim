@@ -38,6 +38,7 @@
 #include <scheduler/process.h>
 #include <datatypes/list.h>
 #include <mm/dymelor.h>
+#include <mm/allocator.h> //per allocate_segment
 
 /// This is the function pointer to correctly set ScheduleNewEvent API version, depending if we're running serially or parallelly
 void (* ScheduleNewEvent)(unsigned int gid_receiver, simtime_t timestamp, unsigned int event_type, void *event_content, unsigned int event_size);
@@ -116,10 +117,11 @@ void ParallelScheduleNewEvent(unsigned int gid_receiver, simtime_t timestamp, un
 		event.rendezvous_mark = current_evt->rendezvous_mark;
 	}
 
-	if (event_content != NULL) {
-		event.payload = allocamemoria(event.receiver, event_size);
-		
-		memcpy(&event.payload, event_content, event_size);
+	if (event_content != NULL && event_size>0) {
+		event.payload = allocate_segment(event.receiver, event_size);
+		//printf("trying memcpy with event_payload=%x, event_content=%x, event_size=%d\n", 
+		//						event.payload, event_content, event_size);
+		memcpy(event.payload, event_content, event_size);
 	}
 
 	insert_outgoing_msg(&event);

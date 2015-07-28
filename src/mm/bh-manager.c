@@ -110,6 +110,7 @@ int insert_BH(int sobj, void* msg, int size) {
 
 	if( (sobj<0) || sobj >= handled_sobjs) goto bad_insert;
 
+	//MAX_MSG_SIZE is sizeof(msg_t)
 	if( (size<=0) || size > MAX_MSG_SIZE) goto bad_insert;
 
 	if( msg == NULL ) goto bad_insert;
