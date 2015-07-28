@@ -78,11 +78,11 @@ int init_BH(void) {
                 addr = allocate_pages(BH_PAGES);
                 if (addr == NULL) goto bad_init;
                 bhmaps[i].live_bh = addr;
-		bhmaps[i].actual_bh_addresses[0] = addr;
+				bhmaps[i].actual_bh_addresses[0] = addr;
                 addr = allocate_pages(BH_PAGES);
                 if (addr == NULL) goto bad_init;
                 bhmaps[i].expired_bh = addr;
-		bhmaps[i].actual_bh_addresses[1] = addr;
+				bhmaps[i].actual_bh_addresses[1] = addr;
         }
 
         for (i=0; i<sobjs; i++){
@@ -100,18 +100,14 @@ bad_init:
 }
 
 
-int insert_BH(int sobj, void* msg, int size) {
+int insert_BH(int sobj, void* msg) {
 
-	int tag;
-	int needed_store;
+	int needed_store = sizeof(msg_t);
 	int residual_store;
 	int offset;
 
 
 	if( (sobj<0) || sobj >= handled_sobjs) goto bad_insert;
-
-	//MAX_MSG_SIZE is sizeof(msg_t)
-	if( (size<=0) || size > MAX_MSG_SIZE) goto bad_insert;
 
 	if( msg == NULL ) goto bad_insert;
 
@@ -123,9 +119,6 @@ int insert_BH(int sobj, void* msg, int size) {
 		goto bad_insert;
 	}
 
-	tag = size;
-	needed_store = tag + sizeof(tag);
-
 	residual_store = BH_SIZE - bhmaps[sobj].live_boundary;
 	
 	if( residual_store < needed_store ){ 
@@ -135,11 +128,7 @@ int insert_BH(int sobj, void* msg, int size) {
 
 	offset = bhmaps[sobj].live_boundary;
 
-	memcpy(bhmaps[sobj].live_bh + offset, &tag, sizeof(tag));
-
-	offset += sizeof(tag);
-
-	memcpy(bhmaps[sobj].live_bh + offset, msg, size);
+	memcpy(bhmaps[sobj].live_bh + offset, msg, sizeof(msg_t));
 
 	bhmaps[sobj].live_boundary += needed_store;
 
@@ -160,7 +149,6 @@ bad_insert:
 
 void *get_BH(int sobj) {
 
-	int msg_tag;
 	void *buff;
 	void *msg_addr;
 	int msg_offset;
@@ -184,21 +172,15 @@ void *get_BH(int sobj) {
 		goto no_msg;
 	}
 
+	buff = get_buffer(sobj, sizeof(msg_t));
+	
 	msg_offset = bhmaps[sobj].expired_offset;  
 
 	msg_addr = bhmaps[sobj].expired_bh + msg_offset;
 
-	memcpy(&msg_tag, msg_addr, sizeof(msg_tag)); 
+	memcpy(buff, msg_addr, sizeof(msg_t)); 
 
-	buff = get_buffer(sobj, msg_tag);
-
-	msg_addr += sizeof(msg_tag);
-
-	memcpy(buff, msg_addr, msg_tag);
-
-	msg_addr += msg_tag;
-
-	bhmaps[sobj].expired_offset = (char*)msg_addr - bhmaps[sobj].expired_bh;
+	bhmaps[sobj].expired_offset += sizeof(msg_t);
 
 	bhmaps[sobj].expired_msgs -= 1;
 
