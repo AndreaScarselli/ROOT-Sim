@@ -298,12 +298,12 @@ void *pool_get_memory(unsigned int lid, size_t size) {
 
 void pool_release_memory(unsigned int lid, void *ptr) {
 	//il ptr che arriva qua è un ptr ad un segmento. devo prima trovare la mdt_entry ad esso associata.
-	puts("pool_release");
+	//puts("pool_release");
 	int i;
 	
 	for(i=0; i < maps[lid].size; i++){
 		if((((mdt_entry*)maps[lid].base )+i)->addr == ptr){
-				puts("found");
+				//puts("found");
 				munmap(ptr, (((mdt_entry*)maps[lid].base )+i)->numpages * PAGE_SIZE);
 				(((mdt_entry*)maps[lid].base) +i)->addr = NULL;
 				(((mdt_entry*)maps[lid].base) +i)->numpages = 0;
@@ -315,12 +315,12 @@ void pool_release_memory(unsigned int lid, void *ptr) {
 }
 
 void* pool_realloc_memory(unsigned int lid, size_t new_size, void* old_ptr){
-	puts("pool_realloc");
+	//puts("pool_realloc");
 	int old_size = new_size / INGOING_BUFFER_GROW_FACTOR;
 	void* new_ptr = pool_get_memory(lid, new_size);
 	memcpy(new_ptr, old_ptr, old_size);
 	pool_release_memory(lid, old_ptr);
-	printf("fine del realloc: new_ptr=%x\n", new_ptr);
+	//printf("fine del realloc: new_ptr=%x\n", new_ptr);
 	return new_ptr;
 }
 

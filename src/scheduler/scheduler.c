@@ -47,6 +47,7 @@
 #include <communication/communication.h>
 #include <gvt/gvt.h>
 #include <statistics/statistics.h>
+#include <communication/communication.h> //per alloca_memoria_ingoing_buffer
 #include <mm/allocator.h> //per allocate_segment
 
 
@@ -183,7 +184,7 @@ static void LP_main_loop(void *args) {
 		timer_start(event_timer);
 
 		switch_to_application_mode();
-		ProcessEvent[current_lp](LidToGid(current_lp), current_evt->timestamp, current_evt->type, current_evt->payload, current_evt->size, current_state);
+		ProcessEvent[current_lp](LidToGid(current_lp), current_evt->timestamp, current_evt->type, (LPS[current_lp]->in_buffer.base) + current_evt->payload_offset, current_evt->size, current_state);
 		switch_to_platform_mode();
 
 		int delta_event_timer = timer_value_micro(event_timer);
@@ -298,8 +299,8 @@ void initialize_worker_thread(void) {
 
 		// Copy the relevant string pointers to the INIT event payload
 		if(model_parameters.size > 0) {
-			init_event.payload= alloca_memoria_ingoing_buffer(init_event.receiver, model_parameters.size * sizeof(char *));
-			memcpy(init_event.payload, model_parameters.arguments, model_parameters.size * sizeof(char *));
+			init_event.payload_offset = alloca_memoria_ingoing_buffer(init_event.receiver, model_parameters.size * sizeof(char *));
+			memcpy((LPS[init_event.receiver]->in_buffer.base) + init_event.payload_offset,  model_parameters.arguments, model_parameters.size * sizeof(char *));
 		}
 
 		(void)list_insert_head(LPS_bound[t]->lid, LPS_bound[t]->queue_in, &init_event);

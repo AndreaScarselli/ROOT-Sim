@@ -125,10 +125,10 @@ void ParallelScheduleNewEvent(unsigned int gid_receiver, simtime_t timestamp, un
 	}
 
 	if (event_content != NULL && event_size>0) {
-		event.payload = alloca_memoria_ingoing_buffer(event.receiver, event_size);
+		event.payload_offset = alloca_memoria_ingoing_buffer(event.receiver, event_size);
 		//printf("trying memcpy with event_payload=%x, event_content=%x, event_size=%d\n", 
 		//						event.payload, event_content, event_size);
-		memcpy(event.payload, event_content, event_size);
+		memcpy((LPS[event.receiver]->in_buffer.base) + event.payload_offset, event_content, event_size);
 	}
 
 	insert_outgoing_msg(&event);
@@ -360,21 +360,21 @@ void send_outgoing_msgs(unsigned int lid) {
 	LPS[lid]->outgoing_buffer.size = 0;
 }
 
-void* alloca_memoria_ingoing_buffer(unsigned int lid, int size){
+int alloca_memoria_ingoing_buffer(unsigned int lid, int size){
 	//TODO: questo dovrà essere cambiato per risolvere la frammentazione interna
-	void* ptr;
+	int ptr_offset;
 	if((LPS[lid]->in_buffer.size - LPS[lid]->in_buffer.offset) < size){
-		printf("old base LPS[lid]->in_buffer.base=%x\n", LPS[lid]->in_buffer.base);
+		//printf("old base LPS[lid]->in_buffer.base=%x\n", LPS[lid]->in_buffer.base);
 		int new_size = (LPS[lid]->in_buffer.size) * INGOING_BUFFER_GROW_FACTOR;
 		LPS[lid]->in_buffer.base = pool_realloc_memory(LPS[lid]->lid, new_size, LPS[lid]->in_buffer.base);
 		LPS[lid]->in_buffer.size = new_size;
-		printf("LPS[lid]->in_buffer.base=%x\n", LPS[lid]->in_buffer.base);
+		//printf("LPS[lid]->in_buffer.base=%x\n", LPS[lid]->in_buffer.base);
 		//LPS[i]->in_buffer.offset rimane quello di prima
 	}
-	ptr = LPS[lid]->in_buffer.base + LPS[lid]->in_buffer.offset;
-	//printf("%x\n", ptr);
+	ptr_offset = LPS[lid]->in_buffer.offset;
+	//printf("%d\n", ptr_offset);
 	LPS[lid]->in_buffer.offset+=size;
-	return ptr;
+	return ptr_offset;
 	
 }
 

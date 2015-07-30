@@ -142,7 +142,7 @@ typedef struct _msg_t {
 	unsigned long long	mark;	/// Unique identifier of the message, used for antimessages
 	unsigned long long	rendezvous_mark;	/// Unique identifier of the message, used for rendez-vous events
 	// Application informations
-	char* 				payload;;
+	int 				payload_offset; //offset nell'ingoing buffer... tipo "binding a tempo di esecuzione"
 	int 				size;
 } msg_t;
 

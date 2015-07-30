@@ -39,9 +39,11 @@ void SerialScheduleNewEvent(unsigned int rcv, simtime_t stamp, unsigned int even
 	event->type = event_type;
 	event->size = event_size;
 	//qua credo che posso farlo tranquillamente con rsalloc()
-	if(event_content!=NULL){
-		event->payload = rsalloc(event_size);
-		memcpy(event->payload, event_content, event_size);
+	if (event_content != NULL && event_size>0) {
+		event->payload_offset = alloca_memoria_ingoing_buffer(event->receiver, event_size);
+		//printf("trying memcpy with event_payload=%x, event_content=%x, event_size=%d\n", 
+		//						event.payload, event_content, event_size);
+		memcpy((LPS[event->receiver]->in_buffer.base) + event->payload_offset, event_content, event_size);
 	}
 	// Put the event in the Calenda Queue
 	calqueue_put(stamp, event);
@@ -108,7 +110,7 @@ void serial_simulation(void) {
 		current_lp = event->receiver;
 		current_lvt = event->timestamp;
 		timer_start(serial_event_execution);
-		ProcessEvent_light(current_lp, current_lvt, event->type, event->payload, event->size, serial_states[current_lp]);
+		ProcessEvent_light(current_lp, current_lvt, event->type, (LPS[current_lp]->in_buffer.base) + event->payload_offset, event->size, serial_states[current_lp]);
 
 		statistics_post_lp_data(current_lp, STAT_EVENT, 1.0);
 		statistics_post_lp_data(current_lp, STAT_EVENT_TIME, timer_value_seconds(serial_event_execution) );
