@@ -57,7 +57,7 @@ void communication_init(void) {
 	int i;
 	for(i=0;i<n_prc;i++){
 		//1MB per iniziare
-		LPS[i]->in_buffer.base = allocate_segment(LPS[i]->lid, INGOING_BUFFER_INITIAL_SIZE);
+		LPS[i]->in_buffer.base = pool_get_memory(LPS[i]->lid, INGOING_BUFFER_INITIAL_SIZE);
 		LPS[i]->in_buffer.size = INGOING_BUFFER_INITIAL_SIZE;
 		LPS[i]->in_buffer.offset = 0;
 	}
@@ -361,7 +361,21 @@ void send_outgoing_msgs(unsigned int lid) {
 }
 
 void* alloca_memoria_ingoing_buffer(unsigned int lid, int size){
-	return NULL;
+	//TODO: questo dovrà essere cambiato per risolvere la frammentazione interna
+	void* ptr;
+	if((LPS[lid]->in_buffer.size - LPS[lid]->in_buffer.offset) < size){
+		printf("old base LPS[lid]->in_buffer.base=%x\n", LPS[lid]->in_buffer.base);
+		int new_size = (LPS[lid]->in_buffer.size) * INGOING_BUFFER_GROW_FACTOR;
+		LPS[lid]->in_buffer.base = pool_realloc_memory(LPS[lid]->lid, new_size, LPS[lid]->in_buffer.base);
+		LPS[lid]->in_buffer.size = new_size;
+		printf("LPS[lid]->in_buffer.base=%x\n", LPS[lid]->in_buffer.base);
+		//LPS[i]->in_buffer.offset rimane quello di prima
+	}
+	ptr = LPS[lid]->in_buffer.base + LPS[lid]->in_buffer.offset;
+	//printf("%x\n", ptr);
+	LPS[lid]->in_buffer.offset+=size;
+	return ptr;
+	
 }
 
 void dealloca_memoria_ingoing_buffer(unsigned int lid, void* ptr, int size){

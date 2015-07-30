@@ -46,7 +46,10 @@
 
 #define LP_STACK_SIZE	4194304	// 4 MB
 
-#define INGOING_BUFFER_INITIAL_SIZE 1048576 //1MB
+//#define INGOING_BUFFER_INITIAL_SIZE 1048576 //1MB
+
+#define INGOING_BUFFER_INITIAL_SIZE ((1048576)	/ (64)) // TEST REALLOC
+
 #define INGOING_BUFFER_GROW_FACTOR 2
 
 
@@ -65,7 +68,7 @@
 
 typedef struct _ingoing_buffer{
 	char* base;
-	int offset;
+	int	offset;
 	int size;
 }ingoing_buffer;
 

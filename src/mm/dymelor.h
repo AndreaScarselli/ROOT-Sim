@@ -212,6 +212,7 @@ extern void *do_malloc(unsigned int, malloc_state * mem_pool, size_t size);
 extern void do_free(unsigned int, malloc_state *mem_pool, void *ptr);
 extern void *pool_get_memory(unsigned int lid, size_t size);
 extern void pool_release_memory(unsigned int lid, void *ptr);
+extern void* pool_realloc_memory(unsigned int lid, size_t new_size, void* old_ptr);
 
 // Checkpointing API
 extern void *log_full(int);
