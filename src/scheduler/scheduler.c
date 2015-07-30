@@ -171,7 +171,8 @@ void scheduler_fini(void) {
 static void LP_main_loop(void *args) {
 
 	(void)args; // this is to make the compiler stop complaining about unused args
-
+	void* current_evt_buffer;
+	
 	// Save a default context
 	#ifdef ENABLE_ULT
 	context_save(&LPS[current_lp]->default_context);
@@ -184,7 +185,18 @@ static void LP_main_loop(void *args) {
 		timer_start(event_timer);
 
 		switch_to_application_mode();
-		ProcessEvent[current_lp](LidToGid(current_lp), current_evt->timestamp, current_evt->type, (LPS[current_lp]->in_buffer.base) + current_evt->payload_offset, current_evt->size, current_state);
+		
+		current_evt_buffer=rsalloc(current_evt->size);
+		
+		spin_lock(&LPS[LidToGid(current_lp)]->in_buffer.lock);
+		memcpy(current_evt_buffer, (LPS[current_lp]->in_buffer.base) + current_evt->payload_offset, 
+																							current_evt->size);
+		spin_unlock(&LPS[LidToGid(current_lp)]->in_buffer.lock);
+		ProcessEvent[current_lp](LidToGid(current_lp), current_evt->timestamp, current_evt->type, 
+														current_evt_buffer, current_evt->size, current_state);
+		
+		rsfree(current_evt_buffer);
+		
 		switch_to_platform_mode();
 
 		int delta_event_timer = timer_value_micro(event_timer);

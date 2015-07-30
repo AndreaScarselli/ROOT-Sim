@@ -315,7 +315,7 @@ void pool_release_memory(unsigned int lid, void *ptr) {
 }
 
 void* pool_realloc_memory(unsigned int lid, size_t new_size, void* old_ptr){
-	//puts("pool_realloc");
+	puts("pool_realloc");
 	int old_size = new_size / INGOING_BUFFER_GROW_FACTOR;
 	void* new_ptr = pool_get_memory(lid, new_size);
 	memcpy(new_ptr, old_ptr, old_size);
