@@ -160,7 +160,6 @@ void *get_BH(int sobj) {
 	pthread_spin_lock(&bh_read[sobj]);
 
 	if(bhmaps[sobj].expired_msgs <= 0 ) {
-	
 		pthread_spin_lock(&bh_write[sobj]);
 		switch_bh(sobj);
 		pthread_spin_unlock(&bh_write[sobj]);

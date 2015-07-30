@@ -46,6 +46,9 @@
 
 #define LP_STACK_SIZE	4194304	// 4 MB
 
+#define INGOING_BUFFER_INITIAL_SIZE 1048576 //1MB
+#define INGOING_BUFFER_GROW_FACTOR 2
+
 
 #define LP_STATE_READY			0x00001
 #define LP_STATE_RUNNING		0x00002
@@ -60,6 +63,11 @@
 #define BLOCKED_STATE			0x01000
 #define is_blocked_state(state)	(bool)(state & BLOCKED_STATE)
 
+typedef struct _ingoing_buffer{
+	char* base;
+	int offset;
+	int size;
+}ingoing_buffer;
 
 typedef struct _LP_state {
 
@@ -132,6 +140,8 @@ typedef struct _LP_state {
 
 	unsigned long long	wait_on_rendezvous;
 	unsigned int		wait_on_object;
+	
+	ingoing_buffer in_buffer;
 
 } LP_state;
 

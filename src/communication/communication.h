@@ -105,6 +105,9 @@ typedef struct _wnd_buffer {
 extern void ParallelScheduleNewEvent(unsigned int, simtime_t, unsigned int, void *, unsigned int);
 
 
+void* alloca_memoria_ingoing_buffer(unsigned int, int);
+void dealloca_memoria_ingoing_buffer(unsigned int, void*, int);
+
 /* Functions invoked by other modules */
 extern void communication_init(void);
 extern void communication_fini(void);

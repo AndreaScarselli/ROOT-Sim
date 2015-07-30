@@ -298,7 +298,7 @@ void initialize_worker_thread(void) {
 
 		// Copy the relevant string pointers to the INIT event payload
 		if(model_parameters.size > 0) {
-			init_event.payload= allocate_segment(init_event.receiver, model_parameters.size * sizeof(char *));
+			init_event.payload= alloca_memoria_ingoing_buffer(init_event.receiver, model_parameters.size * sizeof(char *));
 			memcpy(init_event.payload, model_parameters.arguments, model_parameters.size * sizeof(char *));
 		}
 

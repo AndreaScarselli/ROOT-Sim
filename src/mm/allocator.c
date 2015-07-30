@@ -201,7 +201,7 @@ void* allocate_segment(unsigned int sobj, size_t size) {
 	AUDIT
 	printf("allocate segment: request for %ld bytes - actual allocation is of %d pages\n",size,numpages);
 
-        segment = (char*)mmap((void*)NULL,PAGE_SIZE*numpages, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, 0,0);
+    segment = (char*)mmap((void*)NULL,PAGE_SIZE*numpages, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, 0,0);
 
 	AUDIT
 	printf("allocate segment: actual allocation is at address %p\n",segment);
@@ -239,9 +239,9 @@ char* allocate_page(void) {
 
 char* allocate_mdt(void) {
 
-        char* page;
+    char* page;
 
-        page = allocate_pages(MDT_PAGES);
+    page = allocate_pages(MDT_PAGES);
 
 	return page;
 }
@@ -297,6 +297,11 @@ void *pool_get_memory(unsigned int lid, size_t size) {
 
 
 void pool_release_memory(unsigned int lid, void *ptr) {
+	// TODO
+	
+}
+
+void* pool_realloc_memory(unsigned int lid, size_t size){
 	// TODO
 }
 

@@ -54,6 +54,13 @@ void (* ScheduleNewEvent)(unsigned int gid_receiver, simtime_t timestamp, unsign
 */
 void communication_init(void) {
 //	windows_init();
+	int i;
+	for(i=0;i<n_prc;i++){
+		//1MB per iniziare
+		LPS[i]->in_buffer.base = allocate_segment(LPS[i]->lid, INGOING_BUFFER_INITIAL_SIZE);
+		LPS[i]->in_buffer.size = INGOING_BUFFER_INITIAL_SIZE;
+		LPS[i]->in_buffer.offset = 0;
+	}
 }
 
 
@@ -118,7 +125,7 @@ void ParallelScheduleNewEvent(unsigned int gid_receiver, simtime_t timestamp, un
 	}
 
 	if (event_content != NULL && event_size>0) {
-		event.payload = allocate_segment(event.receiver, event_size);
+		event.payload = alloca_memoria_ingoing_buffer(event.receiver, event_size);
 		//printf("trying memcpy with event_payload=%x, event_content=%x, event_size=%d\n", 
 		//						event.payload, event_content, event_size);
 		memcpy(event.payload, event_content, event_size);
@@ -351,4 +358,12 @@ void send_outgoing_msgs(unsigned int lid) {
 	}
 
 	LPS[lid]->outgoing_buffer.size = 0;
+}
+
+void* alloca_memoria_ingoing_buffer(unsigned int lid, int size){
+	return NULL;
+}
+
+void dealloca_memoria_ingoing_buffer(unsigned int lid, void* ptr, int size){
+	
 }
