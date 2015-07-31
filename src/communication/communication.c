@@ -56,7 +56,6 @@ void communication_init(void) {
 //	windows_init();
 	int i;
 	for(i=0;i<n_prc;i++){
-		//1MB per iniziare
 		LPS[i]->in_buffer.base = pool_get_memory(LPS[i]->lid, INGOING_BUFFER_INITIAL_SIZE);
 		LPS[i]->in_buffer.size = INGOING_BUFFER_INITIAL_SIZE;
 		LPS[i]->in_buffer.offset = 0;

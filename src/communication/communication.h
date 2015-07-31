@@ -78,6 +78,31 @@ enum _control_msgs {
 #define MAX_OUTGOING_MSG	50
 
 
+//#define INGOING_BUFFER_INITIAL_SIZE 1048576 //1MB
+
+#define INGOING_BUFFER_INITIAL_SIZE ((1048576)	/ (64)) // TEST REALLOC
+
+#define INGOING_BUFFER_GROW_FACTOR 2
+
+#define IN_USE_FLAG 0x80000000
+
+
+typedef struct _ingoing_buffer_element{
+	//header.. MRB is 1 in use or 0 free
+	unsigned int h_size;
+	char* base;
+	unsigned int f_size;
+}ingoing_buffer_element;
+
+typedef struct _ingoing_buffer{
+	char* base;
+	ingoing_buffer_element* first_block;
+	int	offset;
+	int size;
+	spinlock_t lock;
+}ingoing_buffer;
+
+
 /// This structure is used by the communication subsystem to handle outgoing messages
 typedef struct _outgoing_t {
 	msg_t outgoing_msgs[MAX_OUTGOING_MSG];
