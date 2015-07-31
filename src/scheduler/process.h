@@ -62,6 +62,25 @@
 
 
 
+<<<<<<< HEAD
+=======
+#define IN_USE_FLAG 0x80000000
+
+typedef struct _ingoing_buffer_element{
+	//header.. MRB is 1 in use or 0 free
+	unsigned int h_size;
+	char* base;
+	unsigned int f_size;
+}ingoing_buffer_element;
+
+typedef struct _ingoing_buffer{
+	char* base;
+	ingoing_buffer_element* first_block;
+	int	offset;
+	int size;
+	spinlock_t lock;
+}ingoing_buffer;
+>>>>>>> c9fa8b51d2a9a2ffdf7bf472afd07a2424c7265b
 
 typedef struct _LP_state {
 
