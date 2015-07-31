@@ -79,26 +79,27 @@ enum _control_msgs {
 
 
 
-//#define INGOING_BUFFER_INITIAL_SIZE 1048576 //1MB
+//#define INGOING_BUFFER_INITIAL_SIZE (1<<20) //1MB
 
-#define INGOING_BUFFER_INITIAL_SIZE ((1048576)	/ (64)) // TEST REALLOC
+#define INGOING_BUFFER_INITIAL_SIZE ((1<<20)	/ (64)) // TEST REALLOC
 
 #define INGOING_BUFFER_GROW_FACTOR 2
 
 #define IN_USE_FLAG 0x80000000
 
 
-typedef struct _ingoing_buffer_element{
+/*typedef struct _ingoing_buffer_element{
 	//header.. MRB is 1 in use or 0 free
 	unsigned int h_size;
 	char* base;
 	unsigned int f_size;
-}ingoing_buffer_element;
+}ingoing_buffer_element;*/
 
 typedef struct _ingoing_buffer{
 	char* base;
-	ingoing_buffer_element* first_block;
-	int	offset;
+	//ingoing_buffer_element* first_block;
+	char* first_free;
+	int	offset; //me lo tengo per debug ma questo va levato
 	int size;
 	spinlock_t lock;
 }ingoing_buffer;
@@ -133,6 +134,9 @@ extern void ParallelScheduleNewEvent(unsigned int, simtime_t, unsigned int, void
 
 int alloca_memoria_ingoing_buffer(unsigned int, int);
 void dealloca_memoria_ingoing_buffer(unsigned int, void*, int);
+void richiedi_altra_memoria(unsigned lid);
+int assegna_blocco(unsigned int lid, int size);
+void split(void* addr, int size);
 
 /* Functions invoked by other modules */
 extern void communication_init(void);
