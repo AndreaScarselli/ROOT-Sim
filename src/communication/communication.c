@@ -380,5 +380,5 @@ int alloca_memoria_ingoing_buffer(unsigned int lid, int size){
 }
 
 void dealloca_memoria_ingoing_buffer(unsigned int lid, void* ptr, int size){
-	
+	//probabilmente anche questo dovrà essere synch
 }

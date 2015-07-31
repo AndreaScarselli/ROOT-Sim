@@ -208,7 +208,7 @@ void* allocate_segment(unsigned int sobj, size_t size) {
 	printf("allocate segment: actual allocation is at address %p\n",segment);
 
 	if (segment == MAP_FAILED) {
-		release_mdt_entry(sobj);
+		release_mdt_entry(sobj, mdt);
 		goto bad_allocate;
 	}
 
@@ -257,13 +257,13 @@ mdt_entry* get_new_mdt_entry(int sobj){
 	m_map = &maps[sobj]; 
 
 	if (m_map->active >= m_map->size){
-		puts("pieni");
 		goto bad_new_mdt_entry;
 	}
 
 	m_map->active += 1;
 
-	mdte = (mdt_entry*)m_map->base + m_map->active - 1 ;
+	mdte = m_map->first_free;
+	m_map->first_free = (mdt_entry*)m_map->first_free->addr;
 
 	return mdte;
 	
@@ -271,7 +271,7 @@ mdt_entry* get_new_mdt_entry(int sobj){
 	return NULL;
 }
 
-int release_mdt_entry(int sobj){
+int release_mdt_entry(int sobj, mdt_entry* mdt){
 	mem_map* m_map;
 		
 	if( (sobj < 0)||(sobj>=handled_sobjs) ) return MDT_RELEASE_FAILURE; 
@@ -283,6 +283,11 @@ int release_mdt_entry(int sobj){
 	}
 
 	m_map->active -= 1;
+	
+	mdt->numpages = -1;
+	mdt->addr = (char*)m_map->first_free;
+	
+	m_map->first_free = mdt;
 
 	return SUCCESS; 
 
@@ -298,15 +303,18 @@ void *pool_get_memory(unsigned int lid, size_t size) {
 
 void pool_release_memory(unsigned int lid, void *ptr) {
 	//il ptr che arriva qua è un ptr ad un segmento. devo prima trovare la mdt_entry ad esso associata.
-	//puts("pool_release");
+//	puts("pool_release");
 	int i;
 	
 	for(i=0; i < maps[lid].size; i++){
 		if((((mdt_entry*)maps[lid].base )+i)->addr == ptr){
 				//puts("found");
 				munmap(ptr, (((mdt_entry*)maps[lid].base )+i)->numpages * PAGE_SIZE);
-				(((mdt_entry*)maps[lid].base) +i)->addr = NULL;
-				(((mdt_entry*)maps[lid].base) +i)->numpages = 0;
+				
+				release_mdt_entry(lid, (((mdt_entry*)maps[lid].base )+i));
+				
+//				(((mdt_entry*)maps[lid].base) +i)->addr = NULL;
+//				(((mdt_entry*)maps[lid].base) +i)->numpages = 0;
 				maps[lid].active -= 1;
 		}
 	}
@@ -315,7 +323,7 @@ void pool_release_memory(unsigned int lid, void *ptr) {
 }
 
 void* pool_realloc_memory(unsigned int lid, size_t new_size, void* old_ptr){
-	puts("pool_realloc");
+//	puts("pool_realloc");
 	int old_size = new_size / INGOING_BUFFER_GROW_FACTOR;
 	void* new_ptr = pool_get_memory(lid, new_size);
 	memcpy(new_ptr, old_ptr, old_size);
@@ -326,7 +334,7 @@ void* pool_realloc_memory(unsigned int lid, size_t new_size, void* old_ptr){
 
 
 int allocator_init(unsigned int sobjs) {
-	unsigned int i;
+	unsigned int i, j;
 	char* addr;
 
 	if( (sobjs > MAX_SOBJS) )
@@ -340,6 +348,13 @@ int allocator_init(unsigned int sobjs) {
 		maps[i].base = addr;
 		maps[i].active = 0;
 		maps[i].size = MDT_ENTRIES;
+		maps[i].first_free = (mdt_entry*) addr;
+		for(j=0;j<MDT_ENTRIES-1;j++){
+			((maps[i].first_free) + j) -> addr = (char*)((maps[i].first_free) + j + 1);
+			((maps[i].first_free) + j) -> numpages = -1;
+		}
+		((mdt_entry*)(maps[i].first_free) + j) -> addr = NULL;
+		((mdt_entry*)(maps[i].first_free) + j) -> numpages = -1;
 		AUDIT
 		printf("INIT: sobj %d - base address is %p - active are %d - MDT size is %d\n",i,maps[i].base, maps[i].active, maps[i].size);
 	}

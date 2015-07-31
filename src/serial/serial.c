@@ -41,8 +41,6 @@ void SerialScheduleNewEvent(unsigned int rcv, simtime_t stamp, unsigned int even
 	//qua credo che posso farlo tranquillamente con rsalloc()
 	if (event_content != NULL && event_size>0) {
 		event->payload_offset = alloca_memoria_ingoing_buffer(event->receiver, event_size);
-		//printf("trying memcpy with event_payload=%x, event_content=%x, event_size=%d\n", 
-		//						event.payload, event_content, event_size);
 		memcpy((LPS[event->receiver]->in_buffer.base) + event->payload_offset, event_content, event_size);
 	}
 	// Put the event in the Calenda Queue

@@ -33,7 +33,16 @@
 #include <pthread.h>
 #include <core/core.h>
 
+
+
+//quando numpages = -1 la mdt è libera e addr punta alla mdt libera successiva
+typedef struct _mdt_entry { //mdt stands for 'meta data table'
+	char* addr;
+	int   numpages;
+} mdt_entry;
+
 typedef struct _mem_map {
+	mdt_entry* first_free;
 	char* base;   //base address of the chain of meta-data tables for the memory map of the sobj	
 	int   size;   //maximum number of entries in the current meta-data tables of the memory map of the sobj
 	int   active;   //number of valid entries in the meta-data tables of the memory map of the sobj
@@ -48,10 +57,6 @@ typedef struct _mem_map {
 	char* actual_bh_addresses[2];// these are the stable pointers seen for bottom half buffers' migration across numa nodes
 } mem_map; 
 
-typedef struct _mdt_entry { //mdt stands for 'meta data table'
-	char* addr;
-	int   numpages;
-} mdt_entry;
 
 typedef struct _map_move {
 	pthread_spinlock_t spinlock;
@@ -82,7 +87,7 @@ mdt_entry* get_new_mdt_entry(int );
 int allocator_init(unsigned int);
 void* allocate_segment(unsigned int, size_t);
 void audit(void);
-int release_mdt_entry(int);
+int release_mdt_entry(int, mdt_entry*);
 void audit_map(unsigned int);
 void set_daemon_maps(mem_map *, map_move* );
 int init_move(int);
