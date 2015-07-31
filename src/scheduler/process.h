@@ -62,8 +62,6 @@
 
 
 
-<<<<<<< HEAD
-=======
 #define IN_USE_FLAG 0x80000000
 
 typedef struct _ingoing_buffer_element{
@@ -80,7 +78,7 @@ typedef struct _ingoing_buffer{
 	int size;
 	spinlock_t lock;
 }ingoing_buffer;
->>>>>>> c9fa8b51d2a9a2ffdf7bf472afd07a2424c7265b
+
 
 typedef struct _LP_state {
 
