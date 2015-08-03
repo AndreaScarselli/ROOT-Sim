@@ -79,9 +79,9 @@ enum _control_msgs {
 
 
 
-#define INGOING_BUFFER_INITIAL_SIZE (1<<20) //1MB
+//#define INGOING_BUFFER_INITIAL_SIZE (1<<20) //1MB
 
-//#define INGOING_BUFFER_INITIAL_SIZE ((1<<20)	/ (64)) // TEST REALLOC
+#define INGOING_BUFFER_INITIAL_SIZE ((1<<20)	/ (64)) // TEST REALLOC
 
 #define MIN_BLOCK_DIMENSION ((2)*(sizeof(unsigned))+(sizeof(void*)))
 
@@ -144,7 +144,7 @@ int alloca_memoria_ingoing_buffer(unsigned int, int);
 void dealloca_memoria_ingoing_buffer(unsigned int, void*, int);
 void richiedi_altra_memoria(unsigned lid);
 int assegna_blocco(unsigned int lid, int size);
-int split(void* addr, int* size);
+int split(void* addr, int* size, int lid);
 
 /* Functions invoked by other modules */
 extern void communication_init(void);

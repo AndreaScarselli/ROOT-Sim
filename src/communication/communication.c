@@ -366,9 +366,11 @@ void send_outgoing_msgs(unsigned int lid) {
 }
 
 void richiedi_altra_memoria(unsigned lid){
+	spin_lock(&LPS[lid]->in_buffer.lock);
 	int new_size = (LPS[lid]->in_buffer.size) * INGOING_BUFFER_GROW_FACTOR;
 	LPS[lid]->in_buffer.base = pool_realloc_memory(LPS[lid]->lid, new_size, LPS[lid]->in_buffer.base);
 	LPS[lid]->in_buffer.size = new_size;
+	spin_unlock(&LPS[lid]->in_buffer.lock);
 }
 
 int alloca_memoria_ingoing_buffer(unsigned int lid, int size){
@@ -394,15 +396,20 @@ int alloca_memoria_ingoing_buffer(unsigned int lid, int size){
 //param size è la size che mi serve in quel blocco...
 //tutti i controlli che sia il blocco giusto sono fatti altrove!
 //return 1 se il blocco che si è creato è di dimensione >= a quella minima
-int split(void* addr, int* size){
+//return -1 se siamo arrivati al limite
+//return 0 se il blocco che si è creato è troppo piccolo
+int split(void* addr, int* size, int lid){
 		
 	void* splitted = addr + 2 * sizeof(unsigned) + *size;
 	int addr_size = FREE_SIZE(addr);
 	int splitted_size;
 	int ret = 0;
 	
+	if(splitted >= (void*) (LPS[lid]->in_buffer.size + LPS[lid]->in_buffer.base))
+		ret = -1;
+	
 	//se il blocco successivo non è in uso..
-	if((FREE_SIZE(splitted) & IN_USE_FLAG) == 0){
+	else if((FREE_SIZE(splitted) & IN_USE_FLAG) == 0){
 	
 		 //ricorda che la size è già al netto di header e footer
 		 //- quello che usiamo adesso
@@ -440,25 +447,38 @@ int split(void* addr, int* size){
 
 int assegna_blocco(unsigned int lid, int size){
 	char* actual = LPS[lid]->in_buffer.first_free;	
+//	printf("%p\n", actual);
 	char* succ = PAYLOAD_OF(LPS[lid]->in_buffer.first_free);
 	char* add_to_ret;
+	int res;
 //	printf("%p\n", succ);
+
 	//copio il puntatore al successivo
 	//se il primo va bene
 	unsigned actual_free_space = FREE_SIZE(actual);
-		
+	
+	
+	//questo è il caso in cui è proprio il primo ad essere quello buono
 	//le dimensioni sono già al netto di header e footer
 	if(actual_free_space >= size){
-//		puts("qua");
-		//se è grande abbastanza...
-//		puts("qui");
-
-		if(split(actual,&size) == 1){
+		res = split(actual,&size,lid);
+		if(res == 1){
 				//se dopo c'è spazio libero a sufficienza nel nuovo blocco che si è creato
 				//a seguito dello split
 				
 				//avanzo il first free
 				LPS[lid]->in_buffer.first_free = actual + size + 2*sizeof(unsigned);
+		}
+		else if(res==-1){
+				//ingrandisci il buffer TODO
+				richiedi_altra_memoria(lid);
+				//first_free diventa il primo byte appena allocato
+				LPS[lid]->in_buffer.first_free = (LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR) + LPS[lid]->in_buffer.base; //offset (dimensione del blocco precedente)+ base
+				//lo inizializzo come un unico buffer
+				//header...
+				*(unsigned int*)(LPS[lid]->in_buffer.first_free) = (LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR) - 2 * sizeof(unsigned int);
+				//...footer
+				*(unsigned int*)((LPS[lid]->in_buffer.first_free) + (LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR) - sizeof(unsigned int)) = (LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR) - 2 * sizeof(unsigned int);
 		}
 			
 		else{
@@ -466,44 +486,59 @@ int assegna_blocco(unsigned int lid, int size){
 			LPS[lid]->in_buffer.first_free = succ;
 		}
 		add_to_ret = actual;
-//		puts("ok");
 		goto esci;
 	}
 	
-	//
+	//questo è il caso in cui non è il primo ad essere quello buono
 	while(true){
 		puts("ciclo");
 		if(succ==NULL){
+			puts("qua");
 			richiedi_altra_memoria(lid);
+			int new_memory_size = LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR;
 			//concateno ad actual il nuovo blocco
-			memcpy(PAYLOAD_OF(actual),(LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR) + LPS[lid]->in_buffer.base, sizeof(char*));
+			memcpy(PAYLOAD_OF(actual),new_memory_size + LPS[lid]->in_buffer.base, sizeof(char*));
+			
+			succ = PAYLOAD_OF(actual);
 			//header... ricordandoci di levare lo spazio per header e footer
-			*((unsigned*)((LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR) + LPS[lid]->in_buffer.base)) = LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR - 2 * sizeof(unsigned);
+			*((unsigned*) succ) = new_memory_size - 2 * sizeof(unsigned);
 			//...footer
-			*((unsigned*)(((LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR) + LPS[lid]->in_buffer.base) + (LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR)) - sizeof(unsigned)) = LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR - 2 * sizeof(unsigned);
+			*((unsigned*) (succ + new_memory_size + sizeof(unsigned))) = new_memory_size - 2 * sizeof(unsigned);
+			
 		}
-		//se il successivo non è null
+		
+		//ora ho sicuramente un successivo
+		int succ_size = FREE_SIZE(succ);
+		//e se il successivo ha la dimensione che mi serve
+		if(succ_size > size){
+			//è il blocco che cerco
+			add_to_ret = succ;
+			res = split(succ, &size, lid);
+			//cambio il successivo ad actual
+			if(res==0)
+				//se il blocco che si è creato non basta
+				memcpy(PAYLOAD_OF(actual), PAYLOAD_OF(succ), sizeof(void*));
+			else if(res==-1){
+				//INGRANDISCI IL BUFFER TODO
+				richiedi_altra_memoria(lid);
+				//first_free diventa il primo byte appena allocato
+				LPS[lid]->in_buffer.first_free = (LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR) + LPS[lid]->in_buffer.base; //offset (dimensione del blocco precedente)+ base
+				//lo inizializzo come un unico buffer
+				//header...
+				*(unsigned int*)(LPS[lid]->in_buffer.first_free) = (LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR) - 2 * sizeof(unsigned int);
+				//...footer
+				*(unsigned int*)((LPS[lid]->in_buffer.first_free) + (LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR) - sizeof(unsigned int)) = (LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR) - 2 * sizeof(unsigned int);
+			}
+			else
+				//altrimenti se basta
+				memcpy(PAYLOAD_OF(actual), succ+2*sizeof(unsigned)+size, sizeof(void*));
+			goto esci;
+		}
 		else{
-			int succ_size = FREE_SIZE(succ);
-			//e se il successivo ha la dimensione che mi serve
-			if(succ_size > size){
-				//è il blocco che cerco
-				add_to_ret = succ;
-				//cambio il successivo ad actual
-				if(split(succ, &size)==0)
-					//se il blocco che si è creato non basta
-					memcpy(PAYLOAD_OF(actual), PAYLOAD_OF(succ), sizeof(void*));
-				else
-					//altrimenti se basta
-					memcpy(PAYLOAD_OF(actual), succ+2*sizeof(unsigned)+size, sizeof(void*));
-				goto esci;
-			}
-			else{
-				//se non basta passo appresso
-				actual = succ;
-				//copio il puntatore al successivo
-				succ = NEXT_FREE_BLOCK(succ);
-			}
+			//se non basta passo appresso
+			actual = succ;
+			//copio il puntatore al successivo
+			succ = NEXT_FREE_BLOCK(succ);
 		}
 	}
 	
@@ -531,4 +566,5 @@ int alloca_memoria_ingoing_buffer(unsigned int lid, int size){
 
 void dealloca_memoria_ingoing_buffer(unsigned int lid, void* ptr, int size){
 	//probabilmente anche questo dovrà essere synch
+	//puts("not yet implemented");
 }
