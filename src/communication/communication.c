@@ -366,11 +366,11 @@ void send_outgoing_msgs(unsigned int lid) {
 }
 
 void richiedi_altra_memoria(unsigned lid){
-	spin_lock(&LPS[lid]->in_buffer.lock);
+//	spin_lock(&LPS[lid]->in_buffer.lock);
 	int new_size = (LPS[lid]->in_buffer.size) * INGOING_BUFFER_GROW_FACTOR;
 	LPS[lid]->in_buffer.base = pool_realloc_memory(LPS[lid]->lid, new_size, LPS[lid]->in_buffer.base);
 	LPS[lid]->in_buffer.size = new_size;
-	spin_unlock(&LPS[lid]->in_buffer.lock);
+//	spin_unlock(&LPS[lid]->in_buffer.lock);
 }
 
 int alloca_memoria_ingoing_buffer(unsigned int lid, int size){
