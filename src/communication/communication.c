@@ -400,13 +400,15 @@ int alloca_memoria_ingoing_buffer(unsigned int lid, int size){
 //return 0 se il blocco che si è creato è troppo piccolo
 int split(void* addr, int* size, int lid){
 		
-	void* splitted = addr + 2 * sizeof(unsigned) + *size;
+	void* splitted = addr + 2 * sizeof(unsigned) + (*size);
 	int addr_size = FREE_SIZE(addr);
 	int splitted_size;
 	int ret = 0;
 	
-	if(splitted >= (void*) (LPS[lid]->in_buffer.size + LPS[lid]->in_buffer.base))
+	if(splitted >= (void*) (LPS[lid]->in_buffer.size + LPS[lid]->in_buffer.base)){
+		puts("sto per ritornare -1");
 		ret = -1;
+	}
 	
 	//se il blocco successivo non è in uso..
 	else if((FREE_SIZE(splitted) & IN_USE_FLAG) == 0){
@@ -447,11 +449,9 @@ int split(void* addr, int* size, int lid){
 
 int assegna_blocco(unsigned int lid, int size){
 	char* actual = LPS[lid]->in_buffer.first_free;	
-//	printf("%p\n", actual);
 	char* succ = PAYLOAD_OF(LPS[lid]->in_buffer.first_free);
 	char* add_to_ret;
 	int res;
-//	printf("%p\n", succ);
 
 	//copio il puntatore al successivo
 	//se il primo va bene
@@ -469,7 +469,11 @@ int assegna_blocco(unsigned int lid, int size){
 				//avanzo il first free
 				LPS[lid]->in_buffer.first_free = actual + size + 2*sizeof(unsigned);
 		}
-		else if(res==-1){
+		
+		
+		/*
+		 * NON CREDO CHE QUESTO SERVA QUA.
+		 * else if(res==-1){
 				//ingrandisci il buffer TODO
 				richiedi_altra_memoria(lid);
 				//first_free diventa il primo byte appena allocato
@@ -479,7 +483,7 @@ int assegna_blocco(unsigned int lid, int size){
 				*(unsigned int*)(LPS[lid]->in_buffer.first_free) = (LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR) - 2 * sizeof(unsigned int);
 				//...footer
 				*(unsigned int*)((LPS[lid]->in_buffer.first_free) + (LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR) - sizeof(unsigned int)) = (LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR) - 2 * sizeof(unsigned int);
-		}
+		}*/
 			
 		else{
 			//ALTRIMENTI IL FF diventa il successivo nella precedente lista
@@ -497,7 +501,7 @@ int assegna_blocco(unsigned int lid, int size){
 			richiedi_altra_memoria(lid);
 			int new_memory_size = LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR;
 			//concateno ad actual il nuovo blocco
-			memcpy(PAYLOAD_OF(actual),new_memory_size + LPS[lid]->in_buffer.base, sizeof(char*));
+			memcpy(PAYLOAD_OF(actual), new_memory_size + LPS[lid]->in_buffer.base, sizeof(char*));
 			
 			succ = PAYLOAD_OF(actual);
 			//header... ricordandoci di levare lo spazio per header e footer
