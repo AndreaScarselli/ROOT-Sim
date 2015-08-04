@@ -83,7 +83,7 @@ enum _control_msgs {
 
 //#define INGOING_BUFFER_INITIAL_SIZE ((1<<20)	/ (64)) // TEST REALLOC
 
-#define MIN_BLOCK_DIMENSION ((2)*(sizeof(unsigned))+(sizeof(void*)))
+#define MIN_BLOCK_DIMENSION ((2)*(sizeof(unsigned))+(sizeof(unsigned long)))
 
 #define INGOING_BUFFER_GROW_FACTOR 2
 

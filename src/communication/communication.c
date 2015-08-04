@@ -477,19 +477,20 @@ int assegna_blocco(unsigned int lid, int size){
 	//le dimensioni sono già al netto di header e footer
 	if(actual_free_space >= size){
 		res = split(actual,&size,lid);
-		if(res == 1){
+		if(res == 1)
 				//se dopo c'è spazio libero a sufficienza nel nuovo blocco che si è creato
 				//a seguito dello split
 				//puts("res==1");
 				//avanzo il first free
 				LPS[lid]->in_buffer.first_free = actual + size + 2*sizeof(unsigned);
-		}
-			
-		else{
+		else if (succ<LPS[lid]->in_buffer.size)
+			//succ è ancora nei limiti
 			//puts("res==0");
 			//ALTRIMENTI IL FF diventa il successivo nella precedente lista
 			LPS[lid]->in_buffer.first_free = succ;
-		}
+		else
+			//non c'è più spazio libero
+			LPS[lid]->in_buffer.first_free = -1;
 		add_to_ret = actual;
 		goto esci;
 	}
