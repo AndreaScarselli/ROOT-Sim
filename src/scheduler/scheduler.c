@@ -186,6 +186,7 @@ static void LP_main_loop(void *args) {
 
 		switch_to_application_mode();
 		
+		//devo copiarlo altrimenti magari durante l'esecuzione dell'evento viene spostato e succedono disastri
 		current_evt_buffer=rsalloc(current_evt->size);
 		
 		spin_lock(&LPS[LidToGid(current_lp)]->in_buffer.lock);
