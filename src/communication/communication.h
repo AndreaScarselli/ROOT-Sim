@@ -79,35 +79,34 @@ enum _control_msgs {
 
 
 
-#define INGOING_BUFFER_INITIAL_SIZE (1<<20) //1MB
+//#define INGOING_BUFFER_INITIAL_SIZE (1<<20) //1MB
 
-//#define INGOING_BUFFER_INITIAL_SIZE ((1<<20)	/ (64)) // TEST REALLOC
+#define INGOING_BUFFER_INITIAL_SIZE ((1<<20)	/ (256)) // TEST REALLOC
 
-#define MIN_BLOCK_DIMENSION ((2)*(sizeof(unsigned))+(sizeof(unsigned long)))
+//#define MIN_BLOCK_DIMENSION ((2)*(sizeof(unsigned))+(sizeof(unsigned long)))
 
 #define INGOING_BUFFER_GROW_FACTOR 2
 
 #define IN_USE_FLAG 0x80000000
 
+//QUESTO "RESTITUISCE"" UN UNSIGNED (L'HEADER APPUNTO)
+#define HEADER_OF(OFFSET,LID) (*(unsigned*) (((LPS[LID]->in_buffer.base)+(OFFSET)) ))
+
+//QUESTO "RESTITUISCE" un indirizzo
 #define PAYLOAD_OF(OFFSET,LID) ((LPS[LID]->in_buffer.base)+(OFFSET)+(sizeof(unsigned)))
 
+//RICORDATI CHE LA DIMENSIONE È NELL'HEADER
 #define FREE_SIZE(OFFSET,LID) (*((unsigned*) ((OFFSET) + (LPS[LID]->in_buffer.base) )))
 
-#define NEXT_FREE_BLOCK(ADDR,LID) ((FREE_SIZE(ADDR,LID)) + (2)*(sizeof(unsigned)))
+//occhio che questo "ritorna" l'offset non l'indirizzo
+#define NEXT_FREE_BLOCK(OFFSET,LID) (*((unsigned*)((LPS[LID]->in_buffer.base) + (OFFSET) + sizeof(unsigned))	))
 
-
-/*typedef struct _ingoing_buffer_element{
-	//header.. MRB is 1 in use or 0 free
-	unsigned int h_size;
-	char* base;
-	unsigned int f_size;
-}ingoing_buffer_element;*/
-
+//L'INDICAZIONE SE È OCCUPATO O MENO È NELL'HEADER E NEL FOOTER
 typedef struct _ingoing_buffer{
 	char* base;
 	//first_free sarà offset in quanto può essere tutto spostato con realloc
-	unsigned long first_free;
-	int size;
+	unsigned first_free;
+	unsigned size;
 	spinlock_t lock;
 }ingoing_buffer;
 
@@ -143,7 +142,7 @@ int alloca_memoria_ingoing_buffer(unsigned int, int);
 void dealloca_memoria_ingoing_buffer(unsigned int, void*, int);
 void richiedi_altra_memoria(unsigned lid);
 int assegna_blocco(unsigned int lid, int size);
-int split(unsigned long addr, int* size, int lid);
+int split(unsigned addr, int* size, int lid);
 
 /* Functions invoked by other modules */
 extern void communication_init(void);

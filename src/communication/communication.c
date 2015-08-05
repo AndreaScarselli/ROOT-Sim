@@ -381,166 +381,193 @@ int alloca_memoria_ingoing_buffer(unsigned int lid, int size){
 }
 
 //L'OPERAZIONE DI SPLIT E' UN'OPERAZIONE CHE DIVIDE UN BLOCCO DI MEMORIA E CAMBIA GLI HEADER AD ENTRAMBI
-//param addr è l'indirizzo dell'header del blocco che sto allocando
+//param addr è l'offset relativo all'header del blocco che sto allocando
 //param size è la size che mi serve in quel blocco...
 //tutti i controlli che sia il blocco giusto sono fatti altrove!
 //return 1 se il blocco che si è creato è di dimensione >= a quella minima
 //return 0 se il blocco che si è creato è troppo piccolo
-int split(unsigned long addr, int* size, int lid){
+int split(unsigned addr, int* size, int lid){
 		
-	unsigned long splitted = addr + 2 * sizeof(unsigned) + (*size);
-	int addr_size = FREE_SIZE(addr,lid);
+	unsigned splitted = addr + 2 * sizeof(unsigned) + (*size);
+	unsigned addr_size = FREE_SIZE(addr,lid);
 	int splitted_size;
 	int ret = 0;
-	int size_with_flag;
+	unsigned size_with_flag;
 	
-	//se il blocco successivo non è in uso..
-	if(((FREE_SIZE(splitted,lid)) & IN_USE_FLAG) == 0){
+	//se il blocco successivo non è in uso
+	if( (HEADER_OF(splitted,lid) & IN_USE_FLAG) == 0){
 	
-		 //ricorda che la size è già al netto di header e footer
-		 //- quello che usiamo adesso
-
 		splitted_size = addr_size-(*size);
-		
 		//- h e f successivi;
 		splitted_size -= 2*sizeof(unsigned);
 		
-		//se splitted sarà in grado di contenere h+f+puntatore al successivo libero
-		if(splitted_size-sizeof(void*)>0){
-			ret = 1;
+		//spazio minimo per essere un blocco libero che contiene il "puntatore" al prossimo libero
+		splitted_size -= sizeof(unsigned);
+		
+//		printf("%d\n", splitted_size);
+		
+		//se è troppo piccolo lo alloco tutto.. piccola frammentazione interna inevitabile
+		if(splitted_size<0){
+			*size = addr_size;
+//			printf("size=%d\n", *size);
+		}
+
+		
+		//se il blocco successivo non è fuori dai limiti 
+		else if(splitted < LPS[lid]->in_buffer.size){
+				
+			//ok è della dimensione giusta, ci rimetto lo spazio libero (quello che eventualmente serve come "puntatore")
+			splitted_size+=sizeof(unsigned);
 			
+			//se splitted sarà in grado di contenere h+f+puntatore al successivo libero
+			ret = 1;
+				
 			//metto l'header al nuovo blocco
-			//*((unsigned*)(splitted)) = splitted_size;
 			memcpy(LPS[lid]->in_buffer.base + splitted, &splitted_size, sizeof(unsigned));
-					
+						
 			//metto il footer al nuovo blocco che si trova a splitted+new_dim+header
-			//*((unsigned*)(splitted + splitted_size + sizeof(unsigned))) = splitted_size;
 			memcpy(LPS[lid]->in_buffer.base + splitted + splitted_size + sizeof(unsigned), &splitted_size, sizeof(unsigned));
 		}
-		else{
-			//se non lo è prendi tutto il blocco... cosa accade poi in lettura? da vedere
-			*size = addr_size;
-		}
 	}
-	
 	size_with_flag = (*size) | IN_USE_FLAG;
 	
 	//DEVO AGGIORNARE L'HEADER E IL FOOTER DEL BLOCCO CHE HO APPENA ALLOCATO. RICORDA ANCHE L'OR CON IN USE
-	//AGGIORNO QUINDI L'HDR DEL BLOCCO CHE STO ALLOCANDO
-	//*((unsigned*)(addr)) = (*size) | IN_USE_FLAG;
-	memcpy(LPS[lid]->in_buffer.base + addr, &size_with_flag, sizeof(int));
-		
-	//ED ORA AGGIORNO IL FOOTER
-	//*((unsigned*) (addr+sizeof(unsigned)+ (*size))) = (*size) | IN_USE_FLAG;
-	memcpy(LPS[lid]->in_buffer.base + addr + sizeof(unsigned) + (*size), &size_with_flag, sizeof(int));
-
+	memcpy(LPS[lid]->in_buffer.base + addr, &size_with_flag, sizeof(unsigned));
+	memcpy(LPS[lid]->in_buffer.base + addr + sizeof(unsigned) + (*size), &size_with_flag, sizeof(unsigned));
 	
 	return ret;
 }
 
 //ricordati che questo restituisce già l'offset per il payload! 
 int assegna_blocco(unsigned int lid, int size){
-	unsigned long actual = LPS[lid]->in_buffer.first_free;
+	//offset del successivo libero
+	unsigned succ;
+	unsigned add_to_ret;
+	int res;
+	unsigned actual_free_space;
+	unsigned actual = LPS[lid]->in_buffer.first_free;
 	//solo quella nuova	
-	int new_memory_size ;
+	unsigned new_memory_size;
 	//non c'è memoria libera
-	//TODO -1 in questo momento non significa niente, sto debbuggando il caso in cui
-	//la memoria dell'ingoing buffer non finisce
-	if(actual==-1){
+//	puts("in");
+
+	if(actual == -1){
+		puts("eccomi");
 		richiedi_altra_memoria(lid);
 		//first_free diventa il primo byte appena allocato
 		new_memory_size = LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR;
 		LPS[lid]->in_buffer.first_free = new_memory_size;
 		//lo inizializzo come un unico buffer
 		//header...
-		//*(unsigned int*)(LPS[lid]->in_buffer.first_free) = (LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR) - 2 * sizeof(unsigned int);
-		
-		memcpy(LPS[lid]->in_buffer.first_free + LPS[lid]->in_buffer.base, &new_memory_size, sizeof(unsigned));
+		memcpy(LPS[lid]->in_buffer.base + new_memory_size, &new_memory_size, sizeof(unsigned));
 		
 		//...footer
-		//*(unsigned int*)((LPS[lid]->in_buffer.first_free) + (LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR) - sizeof(unsigned int)) = (LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR) - 2 * sizeof(unsigned int);
-		
-		memcpy(LPS[lid]->in_buffer.first_free + new_memory_size - sizeof(unsigned) + LPS[lid]->in_buffer.base, &new_memory_size, sizeof(unsigned));
+		memcpy((2* new_memory_size) - sizeof(unsigned) + LPS[lid]->in_buffer.base, &new_memory_size, sizeof(unsigned));
 		actual = LPS[lid]->in_buffer.first_free;
 	}
 	
-	//offset del successivo libero
-//	puts("a");
-	unsigned long succ = *(unsigned long*) PAYLOAD_OF(LPS[lid]->in_buffer.first_free,lid);
-//	puts("b");
-	unsigned long add_to_ret;
-	int res;
-
-	unsigned actual_free_space = FREE_SIZE(actual,lid);
+	//a questo punto first_free è sicuro un blocco libero
+	actual_free_space = FREE_SIZE(actual,lid);
 	
 	//questo è il caso in cui è proprio il primo ad essere quello buono
 	//le dimensioni sono già al netto di header e footer
 	if(actual_free_space >= size){
+	
 		res = split(actual,&size,lid);
-		if(res == 1)
+		
+		if(res == 1){
 				//se dopo c'è spazio libero a sufficienza nel nuovo blocco che si è creato
 				//a seguito dello split
-				//puts("res==1");
 				//avanzo il first free
 				LPS[lid]->in_buffer.first_free = actual + size + 2*sizeof(unsigned);
-		else if (succ<LPS[lid]->in_buffer.size)
-			//succ è ancora nei limiti
-			//puts("res==0");
-			//ALTRIMENTI IL FF diventa il successivo nella precedente lista
-			LPS[lid]->in_buffer.first_free = succ;
-		else
+//				puts("1");
+		}
+		//altrimenti provo a vedere se il free a cui lui puntava è effettivamente ancora libero
+		//questo torna utile soprattutto all'inizio quando la memoria è tutta azzerata
+		//lui punta a 0 ma 0 può essere stato allocato
+		else if ((NEXT_FREE_BLOCK(actual, lid)) & IN_USE_FLAG ==0){
+//			puts("2");
+			LPS[lid]->in_buffer.first_free = NEXT_FREE_BLOCK(actual, lid);
+		}
+		//altrimenti provo a vedere se dopo di lui c'è un blocco libero che non è fuori dai limiti
+		//(questo andrà eliminato quando implementerò il coalescing)
+		else if ( (actual + 2 * sizeof(unsigned) + size < LPS[lid]->in_buffer.size) && ((actual + 2 * sizeof(unsigned) + size) & IN_USE_FLAG == 0)){
+//			puts("3");
+			LPS[lid]->in_buffer.first_free = actual + 2 * sizeof(unsigned) + size;
+		}
+		//a sto punto amen
+		else{
+//			puts("4");
 			//non c'è più spazio libero
 			LPS[lid]->in_buffer.first_free = -1;
+		}
 		add_to_ret = actual;
 		goto esci;
 	}
 	
 	//questo è il caso in cui non è il primo ad essere quello buono
+	//a questo punto si accorge che non ce la fa con il primo blocco libero e cerca una soluzione.
+	//finche non implementiamo la free l'unica soluzione possibile è chiedere altra memoria!
+	//tieni presente questa cosa!!
+	int i=0;
 	while(true){
-		puts("ciclo");
-		if(succ==0){
-			puts("qua");
+		
+//		printf("----%d\n", i++);
+		succ = NEXT_FREE_BLOCK(actual,lid);
+
+		//a questo punto dobbiamo capire qual'è il successivo libero. Se siamo nella fase iniziale
+		//qua mi dice che il successivo libero è 0. questa Cosa può essere vera o meno a secondo
+		//dell'esecuzione. quindi controlliamo se c'è il flag IN_USE. Non può accadere che sia
+		//buono quello successivo e che il blocco "non lo sappia". In quel caso siamo già a regime
+		//e il blocco deve saperlo. L'unico caso in cui il blocco non sa qual'è il successivo libero è 
+		//al primo giro		
+		if( (HEADER_OF(succ,lid) & IN_USE_FLAG) != 0) {
+//			puts("entro qua");
 			richiedi_altra_memoria(lid);
+			//new_memory_size è la memoria appena allocata che corrisponde anche all'offset del primo blocco libero
 			new_memory_size = LPS[lid]->in_buffer.size / INGOING_BUFFER_GROW_FACTOR;
+//			printf("new:memory_size = %d", new_memory_size);
 			//concateno ad actual il nuovo blocco
-			memcpy(PAYLOAD_OF(actual,lid), new_memory_size + LPS[lid]->in_buffer.base, sizeof(unsigned long));
+			memcpy(PAYLOAD_OF(actual,lid), &new_memory_size, sizeof(unsigned));
 			
-			//ricavo l'offset sottraendo l'indirizzo alla base
-			succ = PAYLOAD_OF(actual,lid) - LPS[lid]->in_buffer.base;
+			//new_memory size = old_memory size che è uguale allo spiazzamento (fino a -) è occupato)
+			succ = new_memory_size;
+			
+			int new_memory_size_netta = new_memory_size - 2 * sizeof(unsigned);
 			//header... ricordandoci di levare lo spazio per header e footer
-			*((unsigned*) succ) = new_memory_size - 2 * sizeof(unsigned);
+			memcpy(succ + LPS[lid]->in_buffer.base, &new_memory_size_netta, sizeof(unsigned));
 			//...footer
-			*((unsigned*) (succ + new_memory_size + sizeof(unsigned))) = new_memory_size - 2 * sizeof(unsigned);
-			
+			memcpy(PAYLOAD_OF(succ,lid) + new_memory_size_netta, &new_memory_size_netta, sizeof(unsigned));
 		}
+//		puts("if superato");
 		
 		//ora ho sicuramente un successivo
 		int succ_size = FREE_SIZE(succ,lid);
+//		printf("succ_size = %u\n", succ_size);
 		//e se il successivo ha la dimensione che mi serve
 		if(succ_size > size){
+//			puts("--------------------");
 			//è il blocco che cerco
 			add_to_ret = succ;
-			res = split(succ, &size, lid);
+			succ += 2*sizeof(unsigned)+size; //mi serve per dopo se il blocco che si è creato non basta
+			res = split(add_to_ret, &size, lid);
 			//cambio il successivo ad actual
 			if(res==0)
 				//se il blocco che si è creato non basta
-				memcpy(PAYLOAD_OF(actual,lid), PAYLOAD_OF(succ,lid), sizeof(unsigned long));
+				memcpy(PAYLOAD_OF(actual,lid), PAYLOAD_OF(add_to_ret,lid), sizeof(unsigned));
 			else
 				//altrimenti se basta
-				memcpy(PAYLOAD_OF(actual,lid), LPS[lid]->in_buffer.base + succ+2*sizeof(unsigned)+size, sizeof(unsigned long));
+				memcpy(PAYLOAD_OF(actual,lid), &succ, sizeof(unsigned));
 			goto esci;
 		}
 		else{
 			//se non basta passo appresso
 			actual = succ;
-			//copio il puntatore al successivo
-			succ = NEXT_FREE_BLOCK(succ,lid);
 		}
 	}
 	
 	esci:
 	
-	//ritorno  l'offset tra il puntatore (dopo l'header) e la base
 	return add_to_ret;
 }
 
