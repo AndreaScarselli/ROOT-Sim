@@ -394,8 +394,8 @@ int split(unsigned addr, int* size, int lid){
 	int ret = 0;
 	unsigned size_with_flag;
 	
-	//se il blocco successivo non è in uso
-	if( (HEADER_OF(splitted,lid) & IN_USE_FLAG) == 0){
+	//se il blocco successivo è ancora nei limiti non è in uso
+	if((splitted < LPS[lid]->in_buffer.size) && ((HEADER_OF(splitted,lid) & IN_USE_FLAG) == 0)){
 	
 		splitted_size = addr_size-(*size);
 		//- h e f successivi;
@@ -413,8 +413,9 @@ int split(unsigned addr, int* size, int lid){
 		}
 
 		
-		//se il blocco successivo non è fuori dai limiti 
-		else if(splitted < LPS[lid]->in_buffer.size){
+		//se il blocco successivo non è fuori dai limiti (IL CONTROLLO NON LO FACCIO XKE LHO FATTO SOPRA)
+		//ed è sufficientemente grande (splitted_size>=0)
+		else{
 				
 			//ok è della dimensione giusta, ci rimetto lo spazio libero (quello che eventualmente serve come "puntatore")
 			splitted_size+=sizeof(unsigned);
@@ -423,15 +424,20 @@ int split(unsigned addr, int* size, int lid){
 			ret = 1;
 				
 			//metto l'header al nuovo blocco
+//			puts("1");
 			memcpy(LPS[lid]->in_buffer.base + splitted, &splitted_size, sizeof(unsigned));
-						
+//			puts("2");		
+			
+//			puts("3");
 			//metto il footer al nuovo blocco che si trova a splitted+new_dim+header
 			memcpy(LPS[lid]->in_buffer.base + splitted + splitted_size + sizeof(unsigned), &splitted_size, sizeof(unsigned));
+//			puts("4");
 		}
 	}
-	size_with_flag = (*size) | IN_USE_FLAG;
 	
 	//DEVO AGGIORNARE L'HEADER E IL FOOTER DEL BLOCCO CHE HO APPENA ALLOCATO. RICORDA ANCHE L'OR CON IN USE
+	size_with_flag = (*size) | IN_USE_FLAG;
+	
 	memcpy(LPS[lid]->in_buffer.base + addr, &size_with_flag, sizeof(unsigned));
 	memcpy(LPS[lid]->in_buffer.base + addr + sizeof(unsigned) + (*size), &size_with_flag, sizeof(unsigned));
 	
@@ -485,8 +491,8 @@ int assegna_blocco(unsigned int lid, int size){
 		//altrimenti provo a vedere se il free a cui lui puntava è effettivamente ancora libero
 		//questo torna utile soprattutto all'inizio quando la memoria è tutta azzerata
 		//lui punta a 0 ma 0 può essere stato allocato
-		else if ((NEXT_FREE_BLOCK(actual, lid)) & IN_USE_FLAG ==0){
-//			puts("2");
+		else if ( ( (HEADER_OF(NEXT_FREE_BLOCK(actual, lid),lid)) & IN_USE_FLAG ) ==0){
+			puts("2");
 			LPS[lid]->in_buffer.first_free = NEXT_FREE_BLOCK(actual, lid);
 		}
 		//altrimenti provo a vedere se dopo di lui c'è un blocco libero che non è fuori dai limiti
@@ -512,7 +518,8 @@ int assegna_blocco(unsigned int lid, int size){
 	int i=0;
 	while(true){
 		
-//		printf("----%d\n", i++);
+		printf("----%d\n", i++);
+		//occhio che questo è un offset non un indirizzo
 		succ = NEXT_FREE_BLOCK(actual,lid);
 
 		//a questo punto dobbiamo capire qual'è il successivo libero. Se siamo nella fase iniziale
@@ -530,20 +537,20 @@ int assegna_blocco(unsigned int lid, int size){
 			//concateno ad actual il nuovo blocco
 			memcpy(PAYLOAD_OF(actual,lid), &new_memory_size, sizeof(unsigned));
 			
-			//new_memory size = old_memory size che è uguale allo spiazzamento (fino a -) è occupato)
+			//new_memory size = old_memory size che è uguale allo spiazzamento (fino a - è occupato)
 			succ = new_memory_size;
 			
 			int new_memory_size_netta = new_memory_size - 2 * sizeof(unsigned);
 			//header... ricordandoci di levare lo spazio per header e footer
 			memcpy(succ + LPS[lid]->in_buffer.base, &new_memory_size_netta, sizeof(unsigned));
 			//...footer
-			memcpy(PAYLOAD_OF(succ,lid) + new_memory_size_netta, &new_memory_size_netta, sizeof(unsigned));
+			memcpy(succ + LPS[lid]->in_buffer.base + sizeof(unsigned) + new_memory_size_netta, &new_memory_size_netta, sizeof(unsigned));
 		}
 //		puts("if superato");
 		
 		//ora ho sicuramente un successivo
 		int succ_size = FREE_SIZE(succ,lid);
-//		printf("succ_size = %u\n", succ_size);
+		printf("succ= %u succ_size = %u\n", succ, succ_size);
 		//e se il successivo ha la dimensione che mi serve
 		if(succ_size > size){
 //			puts("--------------------");

@@ -99,7 +99,7 @@ enum _control_msgs {
 #define FREE_SIZE(OFFSET,LID) (*((unsigned*) ((OFFSET) + (LPS[LID]->in_buffer.base) )))
 
 //occhio che questo "ritorna" l'offset non l'indirizzo
-#define NEXT_FREE_BLOCK(OFFSET,LID) (*((unsigned*)((LPS[LID]->in_buffer.base) + (OFFSET) + sizeof(unsigned))	))
+#define NEXT_FREE_BLOCK(OFFSET,LID) (*((unsigned*)((LPS[LID]->in_buffer.base) + (OFFSET) + sizeof(unsigned))))
 
 //L'INDICAZIONE SE È OCCUPATO O MENO È NELL'HEADER E NEL FOOTER
 typedef struct _ingoing_buffer{

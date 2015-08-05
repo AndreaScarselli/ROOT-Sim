@@ -156,6 +156,8 @@ static void *main_simulation_loop(void *arg) {
 * @return Exit code
 */
 int main(int argc, char **argv) {
+	printf("partiamo con %d\n", ((1<<20)	/ (256)));
+
 
 	set_affinity(0);
 
