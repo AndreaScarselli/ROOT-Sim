@@ -81,7 +81,7 @@ enum _control_msgs {
 
 //#define INGOING_BUFFER_INITIAL_SIZE (1<<20) //1MB
 
-#define INGOING_BUFFER_INITIAL_SIZE ((1<<20)	/ (256)) // TEST REALLOC
+#define INGOING_BUFFER_INITIAL_SIZE ((1<<20)	/ (1024)) // TEST REALLOC
 
 //#define MIN_BLOCK_DIMENSION ((2)*(sizeof(unsigned))+(sizeof(unsigned long)))
 
@@ -89,16 +89,16 @@ enum _control_msgs {
 
 #define IN_USE_FLAG 0x80000000
 
-//QUESTO "RESTITUISCE"" UN UNSIGNED (L'HEADER APPUNTO)
-#define HEADER_OF(OFFSET,LID) (*(unsigned*) (((LPS[LID]->in_buffer.base)+(OFFSET)) ))
+//QUESTO "RESTITUISCE" UN UNSIGNED (L'HEADER APPUNTO)
+#define HEADER_OF(OFFSET,LID) (*((unsigned*) (((LPS[LID]->in_buffer.base)+(OFFSET)) )))
 
 //QUESTO "RESTITUISCE" un indirizzo
 #define PAYLOAD_OF(OFFSET,LID) ((LPS[LID]->in_buffer.base)+(OFFSET)+(sizeof(unsigned)))
 
-//RICORDATI CHE LA DIMENSIONE È NELL'HEADER
+//RICORDATI CHE LA DIMENSIONE È NELL'HEADER E CHE È GIA AL NETTO DI HEADER E FOOTER
 #define FREE_SIZE(OFFSET,LID) (*((unsigned*) ((OFFSET) + (LPS[LID]->in_buffer.base) )))
 
-//occhio che questo "ritorna" l'offset non l'indirizzo
+//occhio che questo "ritorna" l'offset del successivo al blocco che ha header in offset non l'indirizzo
 #define NEXT_FREE_BLOCK(OFFSET,LID) (*((unsigned*)((LPS[LID]->in_buffer.base) + (OFFSET) + sizeof(unsigned))))
 
 //L'INDICAZIONE SE È OCCUPATO O MENO È NELL'HEADER E NEL FOOTER
@@ -138,11 +138,11 @@ typedef struct _wnd_buffer {
 extern void ParallelScheduleNewEvent(unsigned int, simtime_t, unsigned int, void *, unsigned int);
 
 
-int alloca_memoria_ingoing_buffer(unsigned int, int);
+unsigned alloca_memoria_ingoing_buffer(unsigned , unsigned);
 void dealloca_memoria_ingoing_buffer(unsigned int, void*, int);
 void richiedi_altra_memoria(unsigned lid);
-int assegna_blocco(unsigned int lid, int size);
-int split(unsigned addr, int* size, int lid);
+unsigned assegna_blocco(unsigned lid, unsigned size);
+int split(unsigned addr, unsigned* size, unsigned lid);
 
 /* Functions invoked by other modules */
 extern void communication_init(void);

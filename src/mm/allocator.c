@@ -309,7 +309,7 @@ void pool_release_memory(unsigned int lid, void *ptr) {
 	
 	for(i=0; i < maps[lid].size; i++){
 		if((((mdt_entry*)maps[lid].base )+i)->addr == ptr){
-				//puts("found");
+//				puts("found");
 				munmap(ptr, ( ( (mdt_entry*)maps[lid].base )+i) -> numpages * PAGE_SIZE);
 				
 				release_mdt_entry(lid, (((mdt_entry*)maps[lid].base )+i));
