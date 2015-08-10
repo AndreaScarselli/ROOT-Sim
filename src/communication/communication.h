@@ -110,8 +110,12 @@ enum _control_msgs {
 //occhio che questo "ritorna" l'offset del successivo al blocco che ha header in offset non l'indirizzo
 #define NEXT_FREE_BLOCK(OFFSET,LID) (*((unsigned*)((LPS[LID]->in_buffer.base) + (OFFSET) + (2*sizeof(unsigned)))))
 
+#define NEXT_FREE_BLOCK_ADDRESS(OFFSET,LID) ((LPS[LID]->in_buffer.base) + (OFFSET) + (2*sizeof(unsigned)))
+
 //occhio che questo "ritorna" l'offset del precedente al blocco che ha header in offset non l'indirizzo
 #define PREV_FREE_BLOCK(OFFSET,LID) (*((unsigned*)((LPS[LID]->in_buffer.base) + (OFFSET) + (sizeof(unsigned)))))
+
+#define PREV_FREE_BLOCK_ADDRESS(OFFSET,LID) ((LPS[LID]->in_buffer.base) + (OFFSET) + (sizeof(unsigned)))
 
 //L'INDICAZIONE SE È OCCUPATO O MENO È NELL'HEADER E NEL FOOTER
 typedef struct _ingoing_buffer{

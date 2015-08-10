@@ -522,20 +522,30 @@ unsigned assegna_blocco(unsigned lid, unsigned size){
 //RICORDA CHE L'OFFSET E' QUELLO DEL MESSAGGIO E NON QUELLO DEL BLOCCO (CHE CORRISPONDE CON L'HEADER!!)
 //STESSO DISCORSO PER SIZE! SIZE E' LA DIMENSIONE DEL MESSAGGIO! NON DEL BLOCCO!!
 //NON PUOI USARLA! PUÒ DARSI CHE ABBIAMO DOVUTA INGRANDIRLA PER RIEMPIRE IL BLOCCO!!
-//VEDI SE POI SERVE MA NON CREDO
 void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int message_size){
 	if(message_size=0)
 		return;
 	unsigned header_offset = payload_offset-sizeof(unsigned); //lavorare con questo.
 	unsigned size = MARK_AS_NOT_IN_USE(HEADER_OF(header_offset,lid));
 	unsigned footer_offset = header_offset + size;
+	unsigned prev_size;
 	unsigned prev_footer = HEADER_OF(header_offset - sizeof(unsigned), lid);
+	unsigned succ_size;
 	unsigned succ_header = HEADER_OF(footer_offset + sizeof(unsigned), lid);
 	
 	if(IS_IN_USE(prev_footer)){
 		if(IS_IN_USE(succ_header)){
 			//sia prev che succ in uso
 			//caso1
+			bzero(PAYLOAD_OF(header_offset,lid), size);
+			//size è gia priva del flag IN USE
+			//rimetto apposto H e F del blocco che si è appena liberato.
+			memcpy(LPS[lid]->in_buffer.base + header_offset, &size, sizeof(unsigned));
+			memcpy(LPS[lid]->in_buffer.base + footer_offset, &size, sizeof(unsigned));
+			//GESTIONE LIFO
+			memcpy(NEXT_FREE_BLOCK_ADDRESS(header_offset,lid), &(LPS[lid]->in_buffer.first_free), sizeof(unsigned));
+			memcpy(PREV_FREE_BLOCK_ADDRESS(header_offset,lid), &(LPS[lid]->in_buffer.first_free), sizeof(unsigned));
+			//PREV_FREE NON C'È. TODO: VEDERE COME GESTIRE LA PREV CHE NON C'È
 		}
 		else{
 			//prev in uso e succ no
