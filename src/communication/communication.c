@@ -520,6 +520,34 @@ unsigned assegna_blocco(unsigned lid, unsigned size){
 //chi lo chiama si deve preoccupare di eseguire lo spinlock
 //occhio che questa non deve fare munmap eh
 //RICORDA CHE L'OFFSET E' QUELLO DEL MESSAGGIO E NON QUELLO DEL BLOCCO (CHE CORRISPONDE CON L'HEADER!!)
-void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int size){
+//STESSO DISCORSO PER SIZE! SIZE E' LA DIMENSIONE DEL MESSAGGIO! NON DEL BLOCCO!!
+//NON PUOI USARLA! PUÒ DARSI CHE ABBIAMO DOVUTA INGRANDIRLA PER RIEMPIRE IL BLOCCO!!
+//VEDI SE POI SERVE MA NON CREDO
+void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int message_size){
+	if(message_size=0)
+		return;
+	unsigned header_offset = MARK_AS_NOT_IN_USE(payload_offset-sizeof(unsigned)); //lavorare con questo.
+	unsigned size = MARK_AS_NOT_IN_USE(HEADER_OF(header_offset,lid));
+	unsigned footer_offset = header_offset + size;
+	unsigned prev_footer = HEADER_OF(header_offset - sizeof(unsigned), lid);
+	unsigned succ_header = HEADER_OF(footer_offset + sizeof(unsigned), lid);
 	
+	if(IS_IN_USE(prev_footer)){
+		if(IS_IN_USE(succ_header)){
+			//sia prev che succ in uso
+			//caso1
+		}
+		else{
+			//prev in uso e succ no
+			//caso2
+		}
+	}
+	else if(IS_IN_USE(succ_header)){
+		//succ in uso e prev no, escluso da prima
+		//caso3
+	}
+	else{
+		//nessuno in uso
+		//caso4
+	}
 }
