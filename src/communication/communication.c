@@ -131,10 +131,10 @@ void ParallelScheduleNewEvent(unsigned int gid_receiver, simtime_t timestamp, un
 	}
 
 	if (event_content != NULL && event_size>0) {
-		spin_lock(&LPS[event.receiver]->in_buffer.lock);
+		spin_lock(&(LPS[event.receiver]->in_buffer.lock));
 		event.payload_offset = alloca_memoria_ingoing_buffer(event.receiver, event_size);
 		memcpy((LPS[event.receiver]->in_buffer.base) + event.payload_offset, event_content, event_size);
-		spin_unlock(&LPS[event.receiver]->in_buffer.lock);
+		spin_unlock(&(LPS[event.receiver]->in_buffer.lock));
 
 	}
 
@@ -371,7 +371,7 @@ void send_outgoing_msgs(unsigned int lid) {
 unsigned richiedi_altra_memoria(unsigned lid){
 //	spin_lock(&LPS[lid]->in_buffer.lock);
 	unsigned ret = LPS[lid]->in_buffer.size;
-	size_t new_size = (LPS[lid]->in_buffer.size) * INGOING_BUFFER_GROW_FACTOR;
+	unsigned new_size = (LPS[lid]->in_buffer.size) * INGOING_BUFFER_GROW_FACTOR;
 	LPS[lid]->in_buffer.base = pool_realloc_memory(lid, new_size, LPS[lid]->in_buffer.base);
 	LPS[lid]->in_buffer.size = new_size;
 	return ret;
@@ -398,22 +398,27 @@ unsigned split(unsigned addr, unsigned* size, unsigned lid){
 	//aggiungo 2 unsigned perchè size è al netto degli header
 	unsigned splitted = addr + 2 * sizeof(unsigned) + (*size);
 	unsigned addr_size = FREE_SIZE(addr,lid); //GIÀ AL NETTO DI HEADER E FOOTER
-	int splitted_size;
+	
+	unsigned splitted_size;
 	int ret = 0;
 	unsigned size_with_flag;
 	
 	//se il blocco successivo è ancora nei limiti e non è in uso
 	if((splitted < LPS[lid]->in_buffer.size) && ((HEADER_OF(splitted,lid) & IN_USE_FLAG) == 0)){
-		splitted_size = addr_size;		
-		
+		splitted_size = addr_size - *size;		
+		 
 		if(splitted_size<MIN_BLOCK_DIMENSION){
 			//lo allocherò tutto
 			*size = addr_size;
 		}
 		
+		
 		//se il blocco successivo non è fuori dai limiti (IL CONTROLLO NON LO FACCIO XKE LHO FATTO SOPRA)
 		//ed è sufficientemente grande (splitted_size>=0)
+		//il blocco nuovo si crea solo in questo caso
 		else{
+			//il posto per h e f ricordando che le size in H e F sono al netto dell'overhead
+			splitted_size-= 2*sizeof(unsigned);
 			//metto gli header al nuovo blocco che si è creato
 			memcpy(LPS[lid]->in_buffer.base + splitted, &splitted_size, sizeof(unsigned));
 			memcpy(LPS[lid]->in_buffer.base + splitted + splitted_size + sizeof(unsigned), &splitted_size, sizeof(unsigned));
@@ -422,62 +427,87 @@ unsigned split(unsigned addr, unsigned* size, unsigned lid){
 	}
 	
 	//se splitted è troppo piccolo o non esiste proprio
-	ret = NEXT_FREE_BLOCK(addr,lid);
+	else
+		ret = NEXT_FREE_BLOCK(addr,lid);
 	
-	if(IS_IN_USE(ret) || (ret>=LPS[lid]->in_buffer.size)){
+	if(IS_IN_USE(HEADER_OF(ret,lid)) || (ret>=LPS[lid]->in_buffer.size)){
 		ret = IN_USE_FLAG;
 	}
 	else{
 		//vado dal successivo a dirgli che il suo prev_free è ora il mio prev_free
-		memcpy(LPS[lid]->in_buffer.base + NEXT_FREE_BLOCK(ret,lid), LPS[lid]->in_buffer.base + NEXT_FREE_BLOCK(addr,lid), sizeof(unsigned));
+		//ovviamente devo controllare che il successivo sia davvero un blocco libero
+		unsigned succ_free = NEXT_FREE_BLOCK(ret,lid);
+		unsigned prev_free_di_ret = PREV_FREE_BLOCK(ret,lid);
+		if((!IS_IN_USE(HEADER_OF(succ_free, lid))) && (succ_free!=IN_USE_FLAG) && HEADER_OF(succ_free,lid)!=0){
+//			puts("qua ci vado");
+			memcpy(LPS[lid]->in_buffer.base + succ_free + sizeof(unsigned), &prev_free_di_ret, sizeof(unsigned));
+		}
 	}
 	
 	//DEVO AGGIORNARE L'HEADER E IL FOOTER DEL BLOCCO CHE HO APPENA ALLOCATO. RICORDA ANCHE L'OR CON IN USE
 	size_with_flag = MARK_AS_IN_USE(*size);
 	memcpy(LPS[lid]->in_buffer.base + addr, &size_with_flag, sizeof(unsigned));
 	memcpy(LPS[lid]->in_buffer.base + addr + sizeof(unsigned) + (*size), &size_with_flag, sizeof(unsigned));
-	
+
 	return ret;
 }
 
-//ricordati che questo restituisce già l'offset per il payload! 
-//
+//*****************************************************************************************
+//RICORDATI CHE QUESTO DEVE RESTITUIRE L'OFFSET PER IL PAYLOAD! E NON L'OFFSET DEL MESSAGGIO
+//*****************************************************************************************
 unsigned assegna_blocco(unsigned lid, unsigned size){
 	
 	unsigned actual;
 	unsigned succ;
 	unsigned new_off;
+	unsigned new_size;
 	
 	//devo allocare almeno una cosa di dimensione sizeof(PREV_FREE) + sizeof(succ_free)
 	if(size<2*sizeof(unsigned))
 		size = 2*sizeof(unsigned);
 	
 	//se FIRST_FREE è pari a IN_USE_FLAG significa che non c'è spazio libero!!
-	if(LPS[lid]->in_buffer.first_free==IN_USE_FLAG)
+	if(LPS[lid]->in_buffer.first_free==IN_USE_FLAG){
 		LPS[lid]->in_buffer.first_free = richiedi_altra_memoria(lid);
-	
+	}
 	
 	actual = LPS[lid]->in_buffer.first_free;
 	//caso in cui FF ce la fa
 	if(HEADER_OF(actual,lid)>=size){
 		LPS[lid]->in_buffer.first_free = split(actual, &size, lid);
-		return actual;
+		//deve ritornare l'offset per il payload!
+		return actual+sizeof(unsigned);
 	}
 	
 	//altrimenti, se FF non ce la fa
 	
+	int i=0;
+	
 	while(true){
 		succ = NEXT_FREE_BLOCK(actual,lid);
-		new_off = richiedi_altra_memoria(lid);
-		if(succ==IN_USE_FLAG || IS_IN_USE(*((unsigned*)LPS[lid]->in_buffer.base + succ))){
-			memcpy(LPS[lid]->in_buffer.base + NEXT_FREE_BLOCK(actual,lid), &new_off, sizeof(unsigned));
+		//Se il successivo non è un blocco utilizzabile
+		if(succ==IN_USE_FLAG || IS_IN_USE(HEADER_OF(succ,lid))){
+			
+			//QUESTA SCRITTA DI DEBUG PUO' ora provocare segfault
+			new_off = richiedi_altra_memoria(lid);
+			new_size = new_off - 2*( (unsigned)sizeof(unsigned)); //al netto di h e f
+			//devo dare al nuovo blocco l'header e il footer
+			memcpy(LPS[lid]->in_buffer.base + new_off, &new_size, sizeof(unsigned));
+			memcpy(LPS[lid]->in_buffer.base + 2*new_off - sizeof(unsigned), &new_size, sizeof(unsigned));
+
+			//devo dire ad actual chi è il nuovo libero succesivo
+			memcpy(LPS[lid]->in_buffer.base + actual + 2*sizeof(unsigned), &new_off, sizeof(unsigned));
 			continue;
 		}
-		//altrimenti..
+		
+		//altrimenti..(ossia se il successivo è utilizzabile)
 		//se il successivo ce la fa
 		if(FREE_SIZE(succ,lid)>=size){
-			memcpy(LPS[lid]->in_buffer.base + NEXT_FREE_BLOCK(actual,lid), LPS[lid]->in_buffer.base + NEXT_FREE_BLOCK(succ,lid), sizeof(unsigned));
-			return succ;
+			unsigned succ_succ = split(succ, &size, lid);
+			//cambio il successivo ad actual
+			memcpy(LPS[lid]->in_buffer.base + 2*sizeof(unsigned) + actual, &succ_succ, sizeof(unsigned));
+			//deve ritornare l'offset per il payload!
+			return succ+sizeof(unsigned);
 		}
 		//se il successivo non ce la fa
 		else{

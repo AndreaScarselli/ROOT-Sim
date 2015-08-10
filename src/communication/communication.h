@@ -86,7 +86,7 @@ enum _control_msgs {
 
 #define INGOING_BUFFER_GROW_FACTOR 2
 
-#define IN_USE_FLAG 0x80000000
+#define IN_USE_FLAG (unsigned) 0x80000000
 
 #define MARK_AS_IN_USE(SIZE) ((SIZE) | (IN_USE_FLAG))
 
