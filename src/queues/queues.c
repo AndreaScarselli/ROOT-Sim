@@ -222,7 +222,7 @@ void process_bottom_halves(void) {
 						
 						spin_lock(&LPS[matched_msg->receiver]->in_buffer.lock);
 						//free sul payload del messaggio che deve essere eliminato
-						dealloca_memoria_ingoing_buffer(matched_msg->receiver, matched_msg, matched_msg->size);
+						dealloca_memoria_ingoing_buffer(matched_msg->receiver, matched_msg->payload_offset, matched_msg->size);
 						spin_unlock(&LPS[matched_msg->receiver]->in_buffer.lock);
 
 						// Delete the matched message

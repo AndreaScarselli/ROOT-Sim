@@ -72,7 +72,7 @@ void fossil_collection(unsigned int lid, simtime_t time_barrier) {
 	//libero la memoria usata per il payload
 	while(actual!=NULL){
 		spin_lock(&LPS[actual->receiver]->in_buffer.lock);
-		dealloca_memoria_ingoing_buffer(actual->receiver, actual, actual->size);
+		dealloca_memoria_ingoing_buffer(actual->receiver, actual->payload_offset, actual->size);
 		spin_unlock(&LPS[actual->receiver]->in_buffer.lock);
 		actual = list_prev(actual);
 	}

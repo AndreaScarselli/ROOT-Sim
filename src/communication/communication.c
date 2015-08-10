@@ -517,24 +517,9 @@ unsigned assegna_blocco(unsigned lid, unsigned size){
 	
 }
 
-
-
-/*DA ELIMINARE
-int alloca_memoria_ingoing_buffer(unsigned int lid, int size){
-	int ptr_offset;
-	if((LPS[lid]->in_buffer.size - LPS[lid]->in_buffer.offset) < size){
-		richiedi_altra_memoria(lid);
-	}
-	ptr_offset = LPS[lid]->in_buffer.offset;
-	LPS[lid]->in_buffer.offset+=size;
-	return ptr_offset;
+//chi lo chiama si deve preoccupare di eseguire lo spinlock
+//occhio che questa non deve fare munmap eh
+//RICORDA CHE L'OFFSET E' QUELLO DEL MESSAGGIO E NON QUELLO DEL BLOCCO (CHE CORRISPONDE CON L'HEADER!!)
+void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int size){
 	
-}
-*/
-
-
-void dealloca_memoria_ingoing_buffer(unsigned int lid, void* ptr, int size){
-	//chi lo chiama si deve preoccupare di eseguire lo spinlock
-	//occhio che questa non deve fare munmap eh
-	//puts("not yet implemented");
 }
