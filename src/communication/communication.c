@@ -584,12 +584,12 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 		unsigned offset_header_vecchio = prev_footer_offset - prev_size;
 		//ADEGUO HEADER E FOOTER
 		memcpy(LPS[lid]->in_buffer.base+offset_header_vecchio, &new_block_size, sizeof(unsigned));
-		memcpy(LPS[lid]->in_buffer.base+new_block_size+prev_size, &new_block_sie, sizeof(unsigned));
+		memcpy(LPS[lid]->in_buffer.base+new_block_size+prev_size, &new_block_size, sizeof(unsigned));
 		//IL PREV E IL NEXT QUI SONO ADDIRITTURA GIÀ APPOSTO
 		
 		//il bzero deve avere dimensioni tali da non cancellare il nuovo footer (che ha sovrascritto il vecchio)
 		//ma il vecchio header si
-		bzero(header_offset + LPS[lid]->in_buffer.base, size + sizeof(unsigned), sizeof(unsigned));
+		bzero(header_offset + LPS[lid]->in_buffer.base, size + sizeof(unsigned));
 	}
 	else{
 		//nessuno in uso
