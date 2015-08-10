@@ -526,7 +526,7 @@ unsigned assegna_blocco(unsigned lid, unsigned size){
 void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int message_size){
 	if(message_size=0)
 		return;
-	unsigned header_offset = MARK_AS_NOT_IN_USE(payload_offset-sizeof(unsigned)); //lavorare con questo.
+	unsigned header_offset = payload_offset-sizeof(unsigned); //lavorare con questo.
 	unsigned size = MARK_AS_NOT_IN_USE(HEADER_OF(header_offset,lid));
 	unsigned footer_offset = header_offset + size;
 	unsigned prev_footer = HEADER_OF(header_offset - sizeof(unsigned), lid);
