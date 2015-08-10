@@ -83,11 +83,20 @@ enum _control_msgs {
 
 #define INGOING_BUFFER_INITIAL_SIZE ((1<<20)	/ (1024)) // TEST REALLOC
 
-//#define MIN_BLOCK_DIMENSION ((2)*(sizeof(unsigned))+(sizeof(unsigned long)))
 
 #define INGOING_BUFFER_GROW_FACTOR 2
 
 #define IN_USE_FLAG 0x80000000
+
+#define MARK_AS_IN_USE(SIZE) ((SIZE) | (IN_USE_FLAG))
+
+#define MARK_AS_NOT_IN_USE(SIZE) ((SIZE) & (~IN_USE_FLAG))
+
+#define IS_IN_USE(ADDR) ( ( (ADDR) & (IN_USE_FLAG) ) != 0 )
+
+//HEADER FOTTER & 2 OFFSET. 
+#define MIN_BLOCK_DIMENSION ((4)*(sizeof(unsigned)))
+
 
 //QUESTO "RESTITUISCE" UN UNSIGNED (L'HEADER APPUNTO)
 #define HEADER_OF(OFFSET,LID) (*((unsigned*) (((LPS[LID]->in_buffer.base)+(OFFSET)) )))
@@ -99,11 +108,14 @@ enum _control_msgs {
 #define FREE_SIZE(OFFSET,LID) (*((unsigned*) ((OFFSET) + (LPS[LID]->in_buffer.base) )))
 
 //occhio che questo "ritorna" l'offset del successivo al blocco che ha header in offset non l'indirizzo
-#define NEXT_FREE_BLOCK(OFFSET,LID) (*((unsigned*)((LPS[LID]->in_buffer.base) + (OFFSET) + sizeof(unsigned))))
+#define NEXT_FREE_BLOCK(OFFSET,LID) (*((unsigned*)((LPS[LID]->in_buffer.base) + (OFFSET) + (2*sizeof(unsigned)))))
+
+//occhio che questo "ritorna" l'offset del precedente al blocco che ha header in offset non l'indirizzo
+#define PREV_FREE_BLOCK(OFFSET,LID) (*((unsigned*)((LPS[LID]->in_buffer.base) + (OFFSET) + (sizeof(unsigned)))))
 
 //L'INDICAZIONE SE È OCCUPATO O MENO È NELL'HEADER E NEL FOOTER
 typedef struct _ingoing_buffer{
-	char* base;
+	void* base;
 	//first_free sarà offset in quanto può essere tutto spostato con realloc
 	unsigned first_free;
 	unsigned size;
@@ -140,9 +152,9 @@ extern void ParallelScheduleNewEvent(unsigned int, simtime_t, unsigned int, void
 
 unsigned alloca_memoria_ingoing_buffer(unsigned , unsigned);
 void dealloca_memoria_ingoing_buffer(unsigned int, void*, int);
-void richiedi_altra_memoria(unsigned lid);
+unsigned richiedi_altra_memoria(unsigned lid);
 unsigned assegna_blocco(unsigned lid, unsigned size);
-int split(unsigned addr, unsigned* size, unsigned lid);
+unsigned split(unsigned addr, unsigned* size, unsigned lid);
 
 /* Functions invoked by other modules */
 extern void communication_init(void);
