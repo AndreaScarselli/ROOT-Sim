@@ -557,7 +557,7 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 			unsigned prev_del_vecchio = PREV_FREE_BLOCK(succ_header_offset,lid);
 			unsigned succ_del_vecchio = NEXT_FREE_BLOCK(succ_header_offset,lid);
 			succ_size = MARK_AS_NOT_IN_USE(succ_header);
-			unsigned footer_del_vecchio_offset = succ_header + succ_size;
+			unsigned footer_del_vecchio_offset = succ_header_offset + succ_size;
 			new_block_size = size + succ_size + 2 * sizeof(unsigned); //occhio che size è quella reale del blocco e non quella del msg
 			//inoltre ci aggiungo lo spazio di un H e F che non serve più (altrimenti avrei due spazi)
 			
@@ -579,6 +579,17 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 	else if(IS_IN_USE(succ_header)){
 		//succ in uso e prev no, escluso da prima
 		//caso3
+		prev_size = MARK_AS_NOT_IN_USE(prev_footer);
+		new_block_size = size + prev_size + 2*sizeof(unsigned);
+		unsigned offset_header_vecchio = prev_footer_offset - prev_size;
+		//ADEGUO HEADER E FOOTER
+		memcpy(LPS[lid]->in_buffer.base+offset_header_vecchio, &new_block_size, sizeof(unsigned));
+		memcpy(LPS[lid]->in_buffer.base+new_block_size+prev_size, &new_block_sie, sizeof(unsigned));
+		//IL PREV E IL NEXT QUI SONO ADDIRITTURA GIÀ APPOSTO
+		
+		//il bzero deve avere dimensioni tali da non cancellare il nuovo footer (che ha sovrascritto il vecchio)
+		//ma il vecchio header si
+		bzero(header_offset + LPS[lid]->in_buffer.base, size + sizeof(unsigned), sizeof(unsigned));
 	}
 	else{
 		//nessuno in uso
