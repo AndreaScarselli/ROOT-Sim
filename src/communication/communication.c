@@ -529,9 +529,13 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 	unsigned size = MARK_AS_NOT_IN_USE(HEADER_OF(header_offset,lid));
 	unsigned footer_offset = header_offset + size;
 	unsigned prev_size;
-	unsigned prev_footer = HEADER_OF(header_offset - sizeof(unsigned), lid);
+	unsigned prev_footer_offset = header_offset - sizeof(unsigned);
+	unsigned prev_footer = HEADER_OF(prev_footer, lid);
 	unsigned succ_size;
-	unsigned succ_header = HEADER_OF(footer_offset + sizeof(unsigned), lid);
+	unsigned succ_header_offset = footer_offset + sizeof(unsigned);
+	unsigned succ_header = HEADER_OF(succ_header_offset, lid);
+	unsigned new_block_size;
+
 	
 	if(IS_IN_USE(prev_footer)){
 		if(IS_IN_USE(succ_header)){
@@ -550,6 +554,26 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 		else{
 			//prev in uso e succ no
 			//caso2
+			unsigned prev_del_vecchio = PREV_FREE_BLOCK(succ_header_offset,lid);
+			unsigned succ_del_vecchio = NEXT_FREE_BLOCK(succ_header_offset,lid);
+			succ_size = MARK_AS_NOT_IN_USE(succ_header);
+			unsigned footer_del_vecchio_offset = succ_header + succ_size;
+			new_block_size = size + succ_size + 2 * sizeof(unsigned); //occhio che size è quella reale del blocco e non quella del msg
+			//inoltre ci aggiungo lo spazio di un H e F che non serve più (altrimenti avrei due spazi)
+			
+			//dico a quello che mi puntava come successivo libero che il successivo è cambiato ed
+			
+			//metto il nuovo footer ed il nuovo header
+			memcpy(LPS[lid]->in_buffer.base+header_offset, &new_block_size, sizeof(unsigned));
+			memcpy(LPS[lid]->in_buffer.base+footer_del_vecchio_offset, &new_block_size, sizeof(unsigned));
+			
+			//è quello vecchio più quello nuovo.
+			memcpy(NEXT_FREE_BLOCK_ADDRESS(prev_del_vecchio,lid), &header_offset, sizeof(unsigned));
+			//imposto il PREV_FREE AL NUOVO BLOCCO
+			memcpy(PAYLOAD_OF(payload_offset,lid), &prev_del_vecchio, sizeof(unsigned));
+			//IMPOSTO IL SUCC_FREE AL NUOVO BLOCCO
+			memcpy(PAYLOAD_OF(payload_offset,lid) + sizeof(unsigned), &succ_del_vecchio, sizeof(unsigned));
+			bzero(PAYLOAD_OF(header_offset,lid), new_block_size);
 		}
 	}
 	else if(IS_IN_USE(succ_header)){
