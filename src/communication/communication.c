@@ -530,7 +530,7 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 	if(message_size=0)
 		return;
 	unsigned header_offset = payload_offset-sizeof(unsigned); //lavorare con questo.
-	printf("payload_offset=%u & header_offset=%u\n", payload_offset, header_offset);
+//	printf("payload_offset=%u & header_offset=%u\n", payload_offset, header_offset);
 	unsigned size = MARK_AS_NOT_IN_USE(HEADER_OF(header_offset,lid));
 	unsigned footer_offset = header_offset + size + sizeof(unsigned); //di quello che va eliminato
 	unsigned prev_size;
@@ -538,16 +538,24 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 	unsigned prev_footer;
 	if(prev_footer_offset>=0)
 		prev_footer = *(unsigned*) (LPS[lid]->in_buffer.base + prev_footer);
+	else{
+		prev_footer_offset=-1;
+		prev_footer = -1;
+	}
 	unsigned succ_size;
 	unsigned succ_header_offset = footer_offset + sizeof(unsigned); //può uscire dai bordi
 	unsigned succ_header;
 	if(succ_header_offset<LPS[lid]->in_buffer.size)
 		succ_header = *(unsigned*)( LPS[lid]->in_buffer.base + succ_header_offset);
+	else{
+		succ_header = -1;
+		succ_header_offset = -1;
+	}
 	unsigned new_block_size;
 
 	
-	if(prev_footer_offset>=0 && IS_IN_USE(prev_footer)){
-		if(succ_header_offset < LPS[lid]->in_buffer.size && IS_IN_USE(succ_header)){
+	if(IS_IN_USE(prev_footer)){
+		if(IS_IN_USE(succ_header)){
 			//sia prev che succ in uso
 			//caso1
 			puts("caso1");
@@ -588,7 +596,7 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 			memcpy(PAYLOAD_OF(payload_offset,lid) + sizeof(unsigned), &succ_del_vecchio, sizeof(unsigned));
 		}
 	}
-	else if(succ_header_offset < LPS[lid]->in_buffer.size && IS_IN_USE(succ_header)){
+	else if(IS_IN_USE(succ_header)){
 		puts("caso3");
 		//succ in uso e prev no, escluso da prima
 		//caso3
@@ -612,22 +620,31 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 		unsigned prev_header_offset = prev_footer_offset - prev_size - sizeof(unsigned); //questo sarà l'header totale
 		unsigned succ_footer_offset = succ_header_offset + succ_size + sizeof(unsigned); //questo sarà il footer totale
 		new_block_size = 4*sizeof(unsigned)+succ_size+prev_size+size;
-		
+		int i = 0;
 		
 		//iMPOSTO HEADER E OFFSET
+printf("%d\n", i++);
 		memcpy(LPS[lid]->in_buffer.base + prev_header_offset, &new_block_size, sizeof(unsigned));
+		printf("%d\n", i++);
+
 		memcpy(LPS[lid]->in_buffer.base + succ_footer_offset, &new_block_size, sizeof(unsigned));
-		
+		printf("%d\n", i++);
+
 		//IL SUCCESSIVO TOTALE È IL SUCCESSIVO DEL SUCC
-		memcpy(PAYLOAD_OF(prev_header_offset,lid) + sizeof(unsigned), PAYLOAD_OF(succ_header_offset,lid) + sizeof(unsigned), sizeof(unsigned));
-		
+		memcpy(NEXT_FREE_BLOCK_ADDRESS(prev_header_offset,lid), NEXT_FREE_BLOCK_ADDRESS(succ_header_offset,lid), sizeof(unsigned));
+		printf("%d\n", i++);
+
 		//IL PREV TOTALE È IL PREV DEL PREV CHE È GIÀ NEL POSTO GIUSTO!!
 		
 		//LE LISTE SONO GIÀ ADEGUATE.. PREV DEL PREV PUNTA A PREV E SUCC PUNTA AL SUCC DEL SUCC
 		//DEVO SOLO ANDARE DAL SUCC DEL SUCC A DIRGLI CHE IL PREV È IL NUOVO BLOCCO
-		memcpy(PREV_FREE_BLOCK_ADDRESS(NEXT_FREE_BLOCK(succ_header,lid),lid), &prev_header_offset, sizeof(unsigned));
 		
+		//----------
+		memcpy(PREV_FREE_BLOCK_ADDRESS(NEXT_FREE_BLOCK(succ_header_offset,lid),lid), &prev_header_offset, sizeof(unsigned));
+		printf("%d\n", i++);
+
 		bzero(LPS[lid]->in_buffer.base + header_offset + 3* sizeof(unsigned), new_block_size - 2 * sizeof(unsigned));
+printf("%d\n", i++);
 
 	}
 }
