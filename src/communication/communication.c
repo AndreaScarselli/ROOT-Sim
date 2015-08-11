@@ -553,7 +553,7 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 	}
 	unsigned new_block_size;
 	
-	if(succ_header==-1 || prev_footer ==-1 ||header_offset==4){
+	if(succ_header==-1 || prev_footer ==-1){
 		
 		puts("estremo");
 		exit(0);
