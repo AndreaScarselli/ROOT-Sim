@@ -527,13 +527,17 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 		return;
 	unsigned header_offset = payload_offset-sizeof(unsigned); //lavorare con questo.
 	unsigned size = MARK_AS_NOT_IN_USE(HEADER_OF(header_offset,lid));
-	unsigned footer_offset = header_offset + size + sizeof(unsigned);
+	unsigned footer_offset = header_offset + size + sizeof(unsigned); //di quello che va eliminato
 	unsigned prev_size;
-	unsigned prev_footer_offset = header_offset - sizeof(unsigned);
-	unsigned prev_footer = HEADER_OF(prev_footer, lid);
+	unsigned prev_footer_offset = header_offset - sizeof(unsigned); //può essere < 0
+	unsigned prev_footer;
+	if(prev_footer_offset>=0)
+		prev_footer = *(unsigned*) (LPS[lid]->in_buffer.base + prev_footer);
 	unsigned succ_size;
-	unsigned succ_header_offset = footer_offset + sizeof(unsigned);
-	unsigned succ_header = HEADER_OF(succ_header_offset, lid);
+	unsigned succ_header_offset = footer_offset + sizeof(unsigned); //può uscire dai bordi
+	unsigned succ_header;
+	if(succ_header_offset<LPS[lid]->in_buffer.size)
+		succ_header = *(unsigned*)( LPS[lid]->in_buffer.base + succ_header_offset);
 	unsigned new_block_size;
 
 	
@@ -541,21 +545,28 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 		if(IS_IN_USE(succ_header)){
 			//sia prev che succ in uso
 			//caso1
+			puts("caso1");
 			bzero(PAYLOAD_OF(header_offset,lid), size);
 			//size è gia priva del flag IN USE
 			//rimetto apposto H e F del blocco che si è appena liberato.
+			puts("1\n");
 			memcpy(LPS[lid]->in_buffer.base + header_offset, &size, sizeof(unsigned));
+			puts("2\n");
 			memcpy(LPS[lid]->in_buffer.base + footer_offset, &size, sizeof(unsigned));
 			//GESTIONE LIFO
+			puts("3\n");
 			memcpy(NEXT_FREE_BLOCK_ADDRESS(header_offset,lid), &(LPS[lid]->in_buffer.first_free), sizeof(unsigned));
 			//memcpy(PREV_FREE_BLOCK_ADDRESS(header_offset,lid), &(LPS[lid]->in_buffer.first_free), sizeof(unsigned));
 			//PREV_FREE NON C'È. TODO: VEDERE COME GESTIRE LA PREV CHE NON C'È
 			//cambio il first_free
+			puts("4\n");
 			LPS[lid]->in_buffer.first_free = header_offset;
+			puts("5\n");
 		}
 		else{
 			//prev in uso e succ no
 			//caso2
+			puts("caso2");
 			unsigned prev_del_vecchio = PREV_FREE_BLOCK(succ_header_offset,lid);
 			unsigned succ_del_vecchio = NEXT_FREE_BLOCK(succ_header_offset,lid);
 			succ_size = MARK_AS_NOT_IN_USE(succ_header);
@@ -578,6 +589,7 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 		}
 	}
 	else if(IS_IN_USE(succ_header)){
+		puts("caso3");
 		//succ in uso e prev no, escluso da prima
 		//caso3
 		prev_size = MARK_AS_NOT_IN_USE(prev_footer);
@@ -594,6 +606,7 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 	}
 	else{
 		//nessuno in uso
+		puts("caso4");
 		prev_size = MARK_AS_NOT_IN_USE(prev_footer);
 		succ_size = MARK_AS_NOT_IN_USE(succ_header);
 		unsigned prev_header_offset = prev_footer_offset - prev_size - sizeof(unsigned); //questo sarà l'header totale
