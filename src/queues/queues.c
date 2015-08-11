@@ -220,10 +220,12 @@ void process_bottom_halves(void) {
 							LPS[lid_receiver]->state = LP_STATE_ROLLBACK;
 						}
 						
-						spin_lock(&LPS[matched_msg->receiver]->in_buffer.lock);
-						//free sul payload del messaggio che deve essere eliminato
-						dealloca_memoria_ingoing_buffer(matched_msg->receiver, matched_msg->payload_offset, matched_msg->size);
-						spin_unlock(&LPS[matched_msg->receiver]->in_buffer.lock);
+						if(matched_msg->size > 0){
+							spin_lock(&LPS[matched_msg->receiver]->in_buffer.lock);
+							//free sul payload del messaggio che deve essere eliminato
+							dealloca_memoria_ingoing_buffer(matched_msg->receiver, matched_msg->payload_offset, matched_msg->size);
+							spin_unlock(&LPS[matched_msg->receiver]->in_buffer.lock);
+						}
 
 						// Delete the matched message
 						list_delete_by_content(matched_msg->sender, LPS[lid_receiver]->queue_in, matched_msg);
