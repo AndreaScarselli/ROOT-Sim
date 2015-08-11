@@ -478,7 +478,8 @@ unsigned assegna_blocco(unsigned lid, unsigned size){
 	if(HEADER_OF(actual,lid)>=size){
 		LPS[lid]->in_buffer.first_free = split(actual, &size, lid);
 		//diciamo al first_free che non ha un prev!
-		*(unsigned*)(PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid)) = IN_USE_FLAG; 
+		if(LPS[lid]->in_buffer.first_free!=IN_USE_FLAG) //non può essere che è un blocco in uso.. o è libero o -1
+			*(unsigned*)(PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid)) = IN_USE_FLAG; 
 		
 		//deve ritornare l'offset per il payload!
 		return actual+sizeof(unsigned);
@@ -511,7 +512,7 @@ unsigned assegna_blocco(unsigned lid, unsigned size){
 			//cambio il successivo ad actual
 			memcpy(NEXT_FREE_BLOCK_ADDRESS(actual,lid), &succ_succ, sizeof(unsigned));
 			//cambio il prev a succ
-			if(succ_succ!=IN_USE_FLAG)
+			if(succ_succ!=IN_USE_FLAG && (!IS_IN_USE(HEADER_OF(succ_succ,lid))))
 				memcpy(PREV_FREE_BLOCK_ADDRESS(succ_succ,lid), &actual, sizeof(unsigned));
 			//deve ritornare l'offset per il payload!
 			return succ+sizeof(unsigned);
