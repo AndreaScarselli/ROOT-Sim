@@ -553,16 +553,13 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 	}
 	unsigned new_block_size;
 	
-	if(succ_header==-1 || prev_footer ==-1){
-		
-		puts("estremo");
-		exit(0);
-	}
+
+	
 	if(IS_IN_USE(prev_footer)){
 		if(IS_IN_USE(succ_header)){
 			//sia prev che succ in uso
 			//caso1
-//		puts("caso1");
+//			puts("caso1");
 			bzero(PAYLOAD_OF(header_offset,lid), size);
 			//size è gia priva del flag IN USE
 			//rimetto apposto H e F del blocco che si è appena liberato.
@@ -582,7 +579,7 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 			unsigned prev_del_vecchio = PREV_FREE_BLOCK(succ_header_offset,lid);
 			unsigned succ_del_vecchio = NEXT_FREE_BLOCK(succ_header_offset,lid);
 			succ_size = MARK_AS_NOT_IN_USE(succ_header);
-			unsigned footer_del_vecchio_offset = succ_header_offset + succ_size;
+			unsigned footer_del_vecchio_offset = succ_header_offset + succ_size + sizeof(unsigned);
 			new_block_size = size + succ_size + 2 * sizeof(unsigned); //occhio che size è quella reale del blocco e non quella del msg
 			//inoltre ci aggiungo lo spazio di un H e F che non serve più (altrimenti avrei due spazi)
 			
@@ -595,9 +592,9 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 			//è quello vecchio più quello nuovo.
 			memcpy(NEXT_FREE_BLOCK_ADDRESS(prev_del_vecchio,lid), &header_offset, sizeof(unsigned));
 			//imposto il PREV_FREE AL NUOVO BLOCCO
-			memcpy(PAYLOAD_OF(payload_offset,lid), &prev_del_vecchio, sizeof(unsigned));
+			memcpy(PREV_FREE_BLOCK_ADDRESS(header_offset,lid), &prev_del_vecchio, sizeof(unsigned));
 			//IMPOSTO IL SUCC_FREE AL NUOVO BLOCCO
-			memcpy(PAYLOAD_OF(payload_offset,lid) + sizeof(unsigned), &succ_del_vecchio, sizeof(unsigned));
+			memcpy(NEXT_FREE_BLOCK_ADDRESS(header_offset,lid), &succ_del_vecchio, sizeof(unsigned));
 		}
 	}
 	else if(IS_IN_USE(succ_header)){
@@ -624,7 +621,6 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 		unsigned prev_header_offset = prev_footer_offset - prev_size - sizeof(unsigned); //questo sarà l'header totale
 		unsigned succ_footer_offset = succ_header_offset + succ_size + sizeof(unsigned); //questo sarà il footer totale
 		new_block_size = 4*sizeof(unsigned)+succ_size+prev_size+size;
-		int i = 0;
 		
 		//iMPOSTO HEADER E OFFSET
 		memcpy(LPS[lid]->in_buffer.base + prev_header_offset, &new_block_size, sizeof(unsigned));
@@ -642,7 +638,24 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 
 		memcpy(PREV_FREE_BLOCK_ADDRESS(NEXT_FREE_BLOCK(succ_header_offset,lid),lid), &prev_header_offset, sizeof(unsigned));
 
-		bzero(LPS[lid]->in_buffer.base + header_offset + 3* sizeof(unsigned), new_block_size - 2 * sizeof(unsigned));
+		bzero(LPS[lid]->in_buffer.base + prev_header_offset + 3* sizeof(unsigned), new_block_size - 2 * sizeof(unsigned));
 
 	}
 }
+
+/*
+void sistema_lista(unsigned prev, unsigned actual, unsigned succ){
+	unsigned not_present = IN_USE_FLAG;
+	if(!IS_IN_USE(HEADER_OF(prev,lid)))
+		memcpy(PREV_FREE_BLOCK_ADDRESS(actual,lid), &prev, sizeof(unsigned));
+	else{
+		puts("prev in uso");
+		memcpy(PREV_FREE_BLOCK_ADDRESS(actual,lid), &not_present, sizeof(unsigned));
+	}
+	if(!IS_IN_USE(HEADER_OF(succ,lid)))
+		memcpy(NEXT_FREE_BLOCK_ADDRESS(actual,lid), &succ, sizeof(unsigned));
+	else{
+		puts("succ in uso");
+		memcpy(NEXT_FREE_BLOCK_ADDRESS(actual,lid), &not_present, sizeof(unsigned));
+	}
+}*/
