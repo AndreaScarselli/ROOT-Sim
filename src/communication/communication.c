@@ -504,7 +504,7 @@ unsigned assegna_blocco(unsigned lid, unsigned size){
 		if(succ==IN_USE_FLAG || IS_IN_USE(HEADER_OF(succ,lid))){
 			
 			new_off = richiedi_altra_memoria(lid);
-			new_size = new_off - 2*( (unsigned)sizeof(unsigned)); //al netto di h e f
+			new_size = new_off - 2*(sizeof(unsigned)); //al netto di h e f
 			//devo dare al nuovo blocco l'header e il footer
 			memcpy(LPS[lid]->in_buffer.base + new_off, &new_size, sizeof(unsigned));
 			memcpy(LPS[lid]->in_buffer.base + 2*new_off - sizeof(unsigned), &new_size, sizeof(unsigned));
@@ -536,13 +536,14 @@ unsigned assegna_blocco(unsigned lid, unsigned size){
 //STESSO DISCORSO PER SIZE! SIZE E' LA DIMENSIONE DEL MESSAGGIO! NON DEL BLOCCO!!
 //NON PUOI USARLA! PUÒ DARSI CHE ABBIAMO DOVUTA INGRANDIRLA PER RIEMPIRE IL BLOCCO!!
 void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int message_size){
-	/*if(message_size==0)
+	if(message_size==0)
 		return;
 	unsigned header_offset = payload_offset-sizeof(unsigned); //lavorare con questo.
 //	printf("payload_offset=%u & header_offset=%u\n", payload_offset, header_offset);
 	unsigned size = MARK_AS_NOT_IN_USE(HEADER_OF(header_offset,lid));	//potrebbe essere diversa da message_size se abbiamo "arrotondato" le dimensioni del blocco
 	unsigned footer_offset = header_offset + size + sizeof(unsigned); //di quello che va eliminato
 	unsigned prev_size;
+	unsigned prev_header_offset;
 	unsigned prev_footer_offset = header_offset - sizeof(unsigned); //può essere < 0
 	unsigned prev_footer;
 	if((int)(prev_footer_offset)>=0){
@@ -554,6 +555,7 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 	}
 	unsigned succ_size;
 	unsigned succ_header_offset = footer_offset + sizeof(unsigned); //può uscire dai bordi
+	unsigned succ_footer_offset;
 	unsigned succ_header;
 	if(succ_header_offset<LPS[lid]->in_buffer.size){
 		succ_header = *(unsigned*)(LPS[lid]->in_buffer.base + succ_header_offset);
@@ -568,91 +570,76 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 		if(IS_IN_USE(succ_header)){
 			//sia prev che succ in uso
 			//caso1
-//			puts("caso1");
-			bzero(PAYLOAD_OF(header_offset,lid), size);
-			//rimetto apposto H e F del blocco che si è appena liberato.
-			memcpy(LPS[lid]->in_buffer.base + header_offset, &size, sizeof(unsigned));
-			memcpy(LPS[lid]->in_buffer.base + footer_offset, &size, sizeof(unsigned));
-			//GESTIONE LIFO
-			memcpy(NEXT_FREE_BLOCK_ADDRESS(header_offset,lid), &(LPS[lid]->in_buffer.first_free), sizeof(unsigned));
-			LPS[lid]->in_buffer.first_free = header_offset;
+			coalesce(header_offset,footer_offset,size,lid);
 		}
 		else{
 			//prev in uso e succ no
 			//caso2
-//			puts("caso2");
-			unsigned prev_del_vecchio = PREV_FREE_BLOCK(succ_header_offset,lid);
-			unsigned succ_del_vecchio = NEXT_FREE_BLOCK(succ_header_offset,lid);
-			if(LPS[lid]->in_buffer.first_free==succ_header_offset)
-				LPS[lid]->in_buffer.first_free=header_offset;
 			succ_size = succ_header;
-			unsigned footer_del_vecchio_offset = succ_header_offset + succ_size + sizeof(unsigned);
-			new_block_size = size + succ_size + 2 * sizeof(unsigned); //occhio che size è quella reale del blocco e non quella del msg
-			//inoltre ci aggiungo lo spazio di un H e F che non serve più (altrimenti avrei due spazi)
-			
-			bzero(PAYLOAD_OF(header_offset,lid), new_block_size);
-			
-			//metto il nuovo footer ed il nuovo header
-			memcpy(LPS[lid]->in_buffer.base+header_offset, &new_block_size, sizeof(unsigned));
-			memcpy(LPS[lid]->in_buffer.base+footer_del_vecchio_offset, &new_block_size, sizeof(unsigned));
-			//dico al successivo che il precedente si è spostato
-			if(!IS_IN_USE(HEADER_OF(succ_del_vecchio,lid))){
-				memcpy(PREV_FREE_BLOCK_ADDRESS(succ_del_vecchio,lid), &header_offset, sizeof(unsigned));
-				//IMPOSTO IL SUCC_FREE AL NUOVO BLOCCO
-				memcpy(NEXT_FREE_BLOCK_ADDRESS(header_offset,lid), &succ_del_vecchio, sizeof(unsigned));
-			}
-			//dico al preceente che il successivo si è sposttao
-			if(!IS_IN_USE(HEADER_OF(prev_del_vecchio,lid))){
-				memcpy(NEXT_FREE_BLOCK_ADDRESS(prev_del_vecchio,lid), &header_offset, sizeof(unsigned));
-				//imposto il PREV_FREE AL NUOVO BLOCCO
-				memcpy(PREV_FREE_BLOCK_ADDRESS(header_offset,lid), &prev_del_vecchio, sizeof(unsigned));
-			}
+			succ_footer_offset = succ_header_offset + sizeof(unsigned) + succ_size;
+			//rimuovo free dalla free list
+			memcpy(NEXT_FREE_BLOCK_ADDRESS(PREV_FREE_BLOCK(succ_header_offset,lid),lid), NEXT_FREE_BLOCK_ADDRESS(succ_header_offset,lid),sizeof(unsigned));
+			memcpy(PREV_FREE_BLOCK_ADDRESS(NEXT_FREE_BLOCK(succ_header_offset,lid),lid), PREV_FREE_BLOCK_ADDRESS(succ_header_offset,lid),sizeof(unsigned));
+			coalesce(header_offset,footer_offset,size+2*sizeof(unsigned)+succ_size,lid);
 		}
 	}
 	else if(IS_IN_USE(succ_header)){
-//		puts("caso3");
 		//succ in uso e prev no, escluso da prima
 		//caso3
-		prev_size = prev_footer;
-		new_block_size = size + prev_size + 2*sizeof(unsigned);
-		unsigned offset_header_vecchio = prev_footer_offset - prev_size - sizeof(unsigned);
 		
-		//ADEGUO HEADER E FOOTER
-		memcpy(LPS[lid]->in_buffer.base + offset_header_vecchio, &new_block_size, sizeof(unsigned));
-		memcpy(LPS[lid]->in_buffer.base + footer_offset, &new_block_size, sizeof(unsigned));
-		//IL PREV E IL NEXT QUI SONO ADDIRITTURA GIÀ APPOSTO
-
-		//il bzero deve avere dimensioni tali da non cancellare il nuovo footer (che ha sovrascritto il vecchio)
-		//ma il vecchio header si. NOTA CHE CANCELLA SU HEADER_OFFSET E NON SUL NUOVO HEADER DEL BLOCCO
-		bzero(header_offset + LPS[lid]->in_buffer.base, size + sizeof(unsigned));
+		prev_size = prev_footer;
+		prev_header_offset = prev_footer_offset - prev_size - sizeof(unsigned);
+		//rimuovo free dalla free list
+		memcpy(NEXT_FREE_BLOCK_ADDRESS(PREV_FREE_BLOCK(prev_header_offset,lid),lid), NEXT_FREE_BLOCK_ADDRESS(prev_header_offset,lid),sizeof(unsigned));
+		memcpy(PREV_FREE_BLOCK_ADDRESS(NEXT_FREE_BLOCK(prev_header_offset,lid),lid), PREV_FREE_BLOCK_ADDRESS(prev_header_offset,lid),sizeof(unsigned));
+		coalesce(prev_header_offset,footer_offset,size+2*sizeof(unsigned)+prev_size,lid);
 	}
 	else{
-		//nessuno in uso
-//		puts("caso4");
-		prev_size = MARK_AS_NOT_IN_USE(prev_footer);
-		succ_size = MARK_AS_NOT_IN_USE(succ_header);
-		unsigned prev_header_offset = prev_footer_offset - prev_size - sizeof(unsigned); //questo sarà l'header totale
-		unsigned succ_footer_offset = succ_header_offset + succ_size + sizeof(unsigned); //questo sarà il footer totale
-		new_block_size = 4*sizeof(unsigned)+succ_size+prev_size+size;
-		if(LPS[lid]->in_buffer.first_free==succ_header_offset)
-			LPS[lid]->in_buffer.first_free=header_offset;
-		
-		//iMPOSTO HEADER E OFFSET
-		memcpy(LPS[lid]->in_buffer.base + prev_header_offset, &new_block_size, sizeof(unsigned));
-		memcpy(LPS[lid]->in_buffer.base + succ_footer_offset, &new_block_size, sizeof(unsigned));
-		//IL SUCCESSIVO TOTALE È IL SUCCESSIVO DEL SUCC
-		memcpy(NEXT_FREE_BLOCK_ADDRESS(prev_header_offset,lid), NEXT_FREE_BLOCK_ADDRESS(succ_header_offset,lid), sizeof(unsigned));
-		//IL PREV TOTALE È IL PREV DEL PREV CHE È GIÀ NEL POSTO GIUSTO!!
-		
-		//LE LISTE SONO GIÀ ADEGUATE.. PREV DEL PREV PUNTA A PREV E SUCC PUNTA AL SUCC DEL SUCC
-		//DEVO SOLO ANDARE DAL SUCC DEL SUCC A DIRGLI CHE IL PREV È IL NUOVO BLOCCO
-		
-		//Dico al successivo che è cambiato il prev
-		if(!IS_IN_USE(HEADER_OF(succ_header_offset,lid)))
-			memcpy(PREV_FREE_BLOCK_ADDRESS(NEXT_FREE_BLOCK(succ_header_offset,lid),lid), &prev_header_offset, sizeof(unsigned));
-
-		bzero(LPS[lid]->in_buffer.base + prev_header_offset + 3* sizeof(unsigned), new_block_size - 2 * sizeof(unsigned));
-
-	}*/
+		//nessuno in uso, caso 4
+		succ_size = succ_header;
+		succ_footer_offset = succ_header_offset + sizeof(unsigned) + succ_size;
+		prev_size = prev_footer;
+		prev_header_offset = prev_footer_offset - prev_size - sizeof(unsigned);
+		//rimuovo free1 dalla free list
+		memcpy(NEXT_FREE_BLOCK_ADDRESS(PREV_FREE_BLOCK(prev_header_offset,lid),lid), NEXT_FREE_BLOCK_ADDRESS(prev_header_offset,lid),sizeof(unsigned));
+		memcpy(PREV_FREE_BLOCK_ADDRESS(NEXT_FREE_BLOCK(prev_header_offset,lid),lid), PREV_FREE_BLOCK_ADDRESS(prev_header_offset,lid),sizeof(unsigned));
+		//rimuovo free2 dalla free list
+		memcpy(NEXT_FREE_BLOCK_ADDRESS(PREV_FREE_BLOCK(succ_header_offset,lid),lid), NEXT_FREE_BLOCK_ADDRESS(succ_header_offset,lid),sizeof(unsigned));
+		memcpy(PREV_FREE_BLOCK_ADDRESS(NEXT_FREE_BLOCK(succ_header_offset,lid),lid), PREV_FREE_BLOCK_ADDRESS(succ_header_offset,lid),sizeof(unsigned));
+		coalesce(prev_header_offset,succ_footer_offset,size+succ_size+prev_size+4*sizeof(unsigned),lid);
+	}
 }
+
+//nuovo header nuovo footer e
+//size al netto di h e f
+void coalesce(unsigned header, unsigned footer, unsigned size, unsigned lid){
+	
+	bzero(PAYLOAD_OF(header,lid),size);
+	*(unsigned*)(LPS[lid]->in_buffer.base + header) = size;
+	*(unsigned*)(LPS[lid]->in_buffer.base + footer) = size;
+	memcpy(NEXT_FREE_BLOCK_ADDRESS(header,lid), &LPS[lid]->in_buffer.first_free, sizeof(unsigned));
+	LPS[lid]->in_buffer.first_free = header;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
