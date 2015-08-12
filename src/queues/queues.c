@@ -225,7 +225,7 @@ void process_bottom_halves(void) {
 							//free sul payload del messaggio che deve essere eliminato
 //									printf("in queues l'offset è%u\n", matched_msg->payload_offset);
 
-							dealloca_memoria_ingoing_buffer(matched_msg->receiver, matched_msg->payload_offset, matched_msg->size);
+							dealloca_memoria_ingoing_buffer(matched_msg->receiver, matched_msg->payload_offset);
 							spin_unlock(&LPS[matched_msg->receiver]->in_buffer.lock);
 						}
 

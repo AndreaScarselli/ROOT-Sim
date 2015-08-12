@@ -157,7 +157,7 @@ extern void ParallelScheduleNewEvent(unsigned int, simtime_t, unsigned int, void
 
 
 unsigned alloca_memoria_ingoing_buffer(unsigned , unsigned);
-void dealloca_memoria_ingoing_buffer(unsigned int, unsigned, int);
+void dealloca_memoria_ingoing_buffer(unsigned int, unsigned);
 unsigned richiedi_altra_memoria(unsigned lid);
 unsigned assegna_blocco(unsigned lid, unsigned size);
 unsigned split(unsigned addr, unsigned* size, unsigned lid);

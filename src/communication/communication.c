@@ -535,9 +535,7 @@ unsigned assegna_blocco(unsigned lid, unsigned size){
 //RICORDA CHE L'OFFSET E' QUELLO DEL MESSAGGIO E NON QUELLO DEL BLOCCO (CHE CORRISPONDE CON L'HEADER!!)
 //STESSO DISCORSO PER SIZE! SIZE E' LA DIMENSIONE DEL MESSAGGIO! NON DEL BLOCCO!!
 //NON PUOI USARLA! PUÒ DARSI CHE ABBIAMO DOVUTA INGRANDIRLA PER RIEMPIRE IL BLOCCO!!
-void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int message_size){
-	if(message_size==0)
-		return;
+void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 	unsigned header_offset = payload_offset-sizeof(unsigned); //lavorare con questo.
 //	printf("payload_offset=%u & header_offset=%u\n", payload_offset, header_offset);
 	unsigned size = MARK_AS_NOT_IN_USE(HEADER_OF(header_offset,lid));	//potrebbe essere diversa da message_size se abbiamo "arrotondato" le dimensioni del blocco
@@ -550,8 +548,8 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 		prev_footer = *(unsigned*) (LPS[lid]->in_buffer.base + prev_footer_offset);	
 	}
 	else{
-		prev_footer_offset=-1;
-		prev_footer = -1;
+		prev_footer_offset = IN_USE_FLAG;
+		prev_footer = IN_USE_FLAG;
 	}
 	unsigned succ_size;
 	unsigned succ_header_offset = footer_offset + sizeof(unsigned); //può uscire dai bordi
@@ -561,8 +559,8 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 		succ_header = *(unsigned*)(LPS[lid]->in_buffer.base + succ_header_offset);
 	}
 	else{
-		succ_header = -1;
-		succ_header_offset = -1;
+		succ_header = IN_USE_FLAG;
+		succ_header_offset = IN_USE_FLAG;
 	}
 	unsigned new_block_size;
 	
@@ -580,13 +578,12 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 			//rimuovo free dalla free list
 			memcpy(NEXT_FREE_BLOCK_ADDRESS(PREV_FREE_BLOCK(succ_header_offset,lid),lid), NEXT_FREE_BLOCK_ADDRESS(succ_header_offset,lid),sizeof(unsigned));
 			memcpy(PREV_FREE_BLOCK_ADDRESS(NEXT_FREE_BLOCK(succ_header_offset,lid),lid), PREV_FREE_BLOCK_ADDRESS(succ_header_offset,lid),sizeof(unsigned));
-			coalesce(header_offset,footer_offset,size+2*sizeof(unsigned)+succ_size,lid);
+			coalesce(header_offset,succ_footer_offset,size+2*sizeof(unsigned)+succ_size,lid);
 		}
 	}
 	else if(IS_IN_USE(succ_header)){
 		//succ in uso e prev no, escluso da prima
 		//caso3
-		
 		prev_size = prev_footer;
 		prev_header_offset = prev_footer_offset - prev_size - sizeof(unsigned);
 		//rimuovo free dalla free list

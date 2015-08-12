@@ -75,7 +75,7 @@ void fossil_collection(unsigned int lid, simtime_t time_barrier) {
 			spin_lock(&LPS[actual->receiver]->in_buffer.lock);
 //					printf("in fossil l'offset è%u\n", actual->payload_offset);
 
-			dealloca_memoria_ingoing_buffer(actual->receiver, actual->payload_offset, actual->size);
+			dealloca_memoria_ingoing_buffer(actual->receiver, actual->payload_offset);
 			spin_unlock(&LPS[actual->receiver]->in_buffer.lock);
 		}
 		actual = list_prev(actual);
