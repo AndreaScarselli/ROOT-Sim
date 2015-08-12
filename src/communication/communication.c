@@ -531,7 +531,6 @@ unsigned assegna_blocco(unsigned lid, unsigned size){
 //STESSO DISCORSO PER SIZE! SIZE E' LA DIMENSIONE DEL MESSAGGIO! NON DEL BLOCCO!!
 //NON PUOI USARLA! PUÒ DARSI CHE ABBIAMO DOVUTA INGRANDIRLA PER RIEMPIRE IL BLOCCO!!
 void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int message_size){
-	/*
 	if(message_size==0)
 		return;
 	unsigned header_offset = payload_offset-sizeof(unsigned); //lavorare con questo.
@@ -590,7 +589,6 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 		}
 		return;
 	}*/
-	/*
 	if(IS_IN_USE(prev_footer)){
 		if(IS_IN_USE(succ_header)){
 			//sia prev che succ in uso
@@ -613,6 +611,8 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 //			puts("caso2");
 			unsigned prev_del_vecchio = PREV_FREE_BLOCK(succ_header_offset,lid);
 			unsigned succ_del_vecchio = NEXT_FREE_BLOCK(succ_header_offset,lid);
+			if(LPS[lid]->in_buffer.first_free==succ_header_offset)
+				LPS[lid]->in_buffer.first_free=header_offset;
 			succ_size = MARK_AS_NOT_IN_USE(succ_header);
 			unsigned footer_del_vecchio_offset = succ_header_offset + succ_size + sizeof(unsigned);
 			new_block_size = size + succ_size + 2 * sizeof(unsigned); //occhio che size è quella reale del blocco e non quella del msg
@@ -663,6 +663,8 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 		unsigned prev_header_offset = prev_footer_offset - prev_size - sizeof(unsigned); //questo sarà l'header totale
 		unsigned succ_footer_offset = succ_header_offset + succ_size + sizeof(unsigned); //questo sarà il footer totale
 		new_block_size = 4*sizeof(unsigned)+succ_size+prev_size+size;
+		if(LPS[lid]->in_buffer.first_free==succ_header_offset)
+			LPS[lid]->in_buffer.first_free=header_offset;
 		
 		//iMPOSTO HEADER E OFFSET
 		memcpy(LPS[lid]->in_buffer.base + prev_header_offset, &new_block_size, sizeof(unsigned));
@@ -680,7 +682,7 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset, int 
 
 		bzero(LPS[lid]->in_buffer.base + prev_header_offset + 3* sizeof(unsigned), new_block_size - 2 * sizeof(unsigned));
 
-	}*/
+	}
 }
 
 /*
