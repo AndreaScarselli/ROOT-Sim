@@ -479,7 +479,13 @@ unsigned assegna_blocco(unsigned lid, unsigned size){
 	
 	//se FIRST_FREE è pari a IN_USE_FLAG significa che non c'è spazio libero!!
 	if(LPS[lid]->in_buffer.first_free==IN_USE_FLAG || IS_IN_USE(HEADER_OF(LPS[lid]->in_buffer.first_free,lid))){
-		LPS[lid]->in_buffer.first_free = richiedi_altra_memoria(lid);
+		new_off = richiedi_altra_memoria(lid);
+		new_size = new_off - 2*(sizeof(unsigned)); //al netto di h e f
+		//devo dare al nuovo blocco l'header e il footer
+		memcpy(LPS[lid]->in_buffer.base + new_off, &new_size, sizeof(unsigned));
+		memcpy(LPS[lid]->in_buffer.base + 2*new_off - sizeof(unsigned), &new_size, sizeof(unsigned));
+		LPS[lid]->in_buffer.first_free = new_off;
+		//non c'era nessuna lista dei free quindi non va adeguata (ovviamente)
 	}
 	
 	actual = LPS[lid]->in_buffer.first_free;
@@ -613,7 +619,7 @@ void delete_from_free_list(unsigned to_delete, unsigned lid){
 //nuovo header nuovo footer e
 //size al netto di h e f
 void coalesce(unsigned header, unsigned footer, unsigned size, unsigned lid){
-	
+//	printf("%u\n", size);
 	bzero(PAYLOAD_OF(header,lid),size);
 	*(unsigned*)(LPS[lid]->in_buffer.base + header) = size;
 	*(unsigned*)(LPS[lid]->in_buffer.base + footer) = size;
