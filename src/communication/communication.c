@@ -576,8 +576,7 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 			succ_size = succ_header;
 			succ_footer_offset = succ_header_offset + sizeof(unsigned) + succ_size;
 			//rimuovo free dalla free list
-			memcpy(NEXT_FREE_BLOCK_ADDRESS(PREV_FREE_BLOCK(succ_header_offset,lid),lid), NEXT_FREE_BLOCK_ADDRESS(succ_header_offset,lid),sizeof(unsigned));
-			memcpy(PREV_FREE_BLOCK_ADDRESS(NEXT_FREE_BLOCK(succ_header_offset,lid),lid), PREV_FREE_BLOCK_ADDRESS(succ_header_offset,lid),sizeof(unsigned));
+			delete_from_free_list(succ_header_offset,lid);
 			coalesce(header_offset,succ_footer_offset,size+2*sizeof(unsigned)+succ_size,lid);
 		}
 	}
@@ -587,8 +586,7 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 		prev_size = prev_footer;
 		prev_header_offset = prev_footer_offset - prev_size - sizeof(unsigned);
 		//rimuovo free dalla free list
-		memcpy(NEXT_FREE_BLOCK_ADDRESS(PREV_FREE_BLOCK(prev_header_offset,lid),lid), NEXT_FREE_BLOCK_ADDRESS(prev_header_offset,lid),sizeof(unsigned));
-		memcpy(PREV_FREE_BLOCK_ADDRESS(NEXT_FREE_BLOCK(prev_header_offset,lid),lid), PREV_FREE_BLOCK_ADDRESS(prev_header_offset,lid),sizeof(unsigned));
+		delete_from_free_list(prev_header_offset,lid);
 		coalesce(prev_header_offset,footer_offset,size+2*sizeof(unsigned)+prev_size,lid);
 	}
 	else{
@@ -598,13 +596,18 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 		prev_size = prev_footer;
 		prev_header_offset = prev_footer_offset - prev_size - sizeof(unsigned);
 		//rimuovo free1 dalla free list
-		memcpy(NEXT_FREE_BLOCK_ADDRESS(PREV_FREE_BLOCK(prev_header_offset,lid),lid), NEXT_FREE_BLOCK_ADDRESS(prev_header_offset,lid),sizeof(unsigned));
-		memcpy(PREV_FREE_BLOCK_ADDRESS(NEXT_FREE_BLOCK(prev_header_offset,lid),lid), PREV_FREE_BLOCK_ADDRESS(prev_header_offset,lid),sizeof(unsigned));
+		delete_from_free_list(prev_header_offset,lid);
 		//rimuovo free2 dalla free list
-		memcpy(NEXT_FREE_BLOCK_ADDRESS(PREV_FREE_BLOCK(succ_header_offset,lid),lid), NEXT_FREE_BLOCK_ADDRESS(succ_header_offset,lid),sizeof(unsigned));
-		memcpy(PREV_FREE_BLOCK_ADDRESS(NEXT_FREE_BLOCK(succ_header_offset,lid),lid), PREV_FREE_BLOCK_ADDRESS(succ_header_offset,lid),sizeof(unsigned));
+		delete_from_free_list(succ_header_offset,lid);
 		coalesce(prev_header_offset,succ_footer_offset,size+succ_size+prev_size+4*sizeof(unsigned),lid);
 	}
+}
+
+void delete_from_free_list(unsigned to_delete, unsigned lid){
+	if(!IS_IN_USE(HEADER_OF(PREV_FREE_BLOCK(to_delete,lid),lid)) && PREV_FREE_BLOCK(to_delete,lid)!=-1)
+		memcpy(NEXT_FREE_BLOCK_ADDRESS(PREV_FREE_BLOCK(to_delete,lid),lid), NEXT_FREE_BLOCK_ADDRESS(to_delete,lid),sizeof(unsigned));
+	if(!IS_IN_USE(HEADER_OF(NEXT_FREE_BLOCK(to_delete,lid),lid)) && NEXT_FREE_BLOCK(to_delete,lid)!=-1)
+		memcpy(PREV_FREE_BLOCK_ADDRESS(NEXT_FREE_BLOCK(to_delete,lid),lid), PREV_FREE_BLOCK_ADDRESS(to_delete,lid),sizeof(unsigned));
 }
 
 //nuovo header nuovo footer e
