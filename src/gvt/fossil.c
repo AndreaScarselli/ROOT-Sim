@@ -67,8 +67,8 @@ void fossil_collection(unsigned int lid, simtime_t time_barrier) {
 
 	// Determine queue pruning horizon
 	last_kept_event = list_head(LPS[lid]->queue_states)->last_event;
-	actual = last_kept_event;
-
+	actual = list_prev(last_kept_event);
+	
 	//libero la memoria usata per il payload
 	while(actual!=NULL){
 		if(actual->size>0){
