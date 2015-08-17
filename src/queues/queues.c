@@ -230,7 +230,7 @@ void process_bottom_halves(void) {
 						}
 
 						// Delete the matched message
-						list_delete_by_content(matched_msg->sender, LPS[lid_receiver]->queue_in, matched_msg);
+						list_delete_by_content(matched_msg->receiver, LPS[lid_receiver]->queue_in, matched_msg);
 
 						//dealloca un node buffer che era stato allocato in get_BH
 						list_deallocate_node_buffer(LPS_bound[i]->lid, msg_to_process);

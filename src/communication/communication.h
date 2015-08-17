@@ -126,6 +126,8 @@ typedef struct _ingoing_buffer{
 	unsigned first_free;
 	unsigned size;
 	spinlock_t lock;
+	//VARIABILE DI DEBUG - ELIMINARE
+	unsigned in_use;
 }ingoing_buffer;
 
 
