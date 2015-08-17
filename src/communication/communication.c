@@ -590,8 +590,6 @@ unsigned assegna_blocco(unsigned lid, unsigned size){
 //STESSO DISCORSO PER SIZE! SIZE E' LA DIMENSIONE DEL MESSAGGIO! NON DEL BLOCCO!!
 //NON PUOI USARLA! PUÒ DARSI CHE ABBIAMO DOVUTA INGRANDIRLA PER RIEMPIRE IL BLOCCO!!
 void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
-//	puts("free");
-
 	if(payload_offset>=LPS[lid]->in_buffer.size)
 		exit(0);
 	unsigned header_offset = payload_offset-sizeof(unsigned); //lavorare con questo.
@@ -621,7 +619,6 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 		succ_header_offset = IN_USE_FLAG;
 	}
 	unsigned new_block_size;
-	
 	//sono IN_USE_FLAG se ce li ho messi io perchè sono fuori dai bordi!!
 	if(IS_IN_USE(prev_footer)){
 		if(IS_IN_USE(succ_header)){
@@ -694,7 +691,9 @@ void coalesce(unsigned header, unsigned footer, unsigned size, unsigned lid){
 	bzero(PAYLOAD_OF(header,lid),size);
 	memcpy(LPS[lid]->in_buffer.base + header, &size, sizeof(unsigned));
 	memcpy(LPS[lid]->in_buffer.base + footer, &size, sizeof(unsigned));
-	memcpy(PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid), &header, sizeof(unsigned));
+	//questa situazione può crearsi anche da delete_from_free_list
+	if(LPS[lid]->in_buffer.first_free!=IN_USE_FLAG && !IS_IN_USE(HEADER_OF(LPS[lid]->in_buffer.first_free,lid)))
+		memcpy(PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid), &header, sizeof(unsigned));
 	*(unsigned*)NEXT_FREE_BLOCK_ADDRESS(header,lid) = LPS[lid]->in_buffer.first_free;
 	*(unsigned*)PREV_FREE_BLOCK_ADDRESS(header,lid) = IN_USE_FLAG;
 //	printf("sto per mettere ff %u\n", header);

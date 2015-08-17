@@ -171,7 +171,7 @@ void scheduler_fini(void) {
 static void LP_main_loop(void *args) {
 
 	(void)args; // this is to make the compiler stop complaining about unused args
-	void* current_evt_buffer;
+	void* current_evt_buffer=NULL;
 	
 	// Save a default context
 	#ifdef ENABLE_ULT
@@ -187,16 +187,19 @@ static void LP_main_loop(void *args) {
 		switch_to_application_mode();
 		
 		//devo copiarlo altrimenti magari durante l'esecuzione dell'evento viene spostato e succedono disastri
-		current_evt_buffer=rsalloc(current_evt->size);
+		if(current_evt->size>0){
+			current_evt_buffer=rsalloc(current_evt->size);
+			
+			spin_lock(&LPS[LidToGid(current_lp)]->in_buffer.lock);
+			memcpy(current_evt_buffer, (LPS[current_lp]->in_buffer.base) + current_evt->payload_offset, current_evt->size);
+			spin_unlock(&LPS[LidToGid(current_lp)]->in_buffer.lock);
+		}
 		
-		spin_lock(&LPS[LidToGid(current_lp)]->in_buffer.lock);
-		memcpy(current_evt_buffer, (LPS[current_lp]->in_buffer.base) + current_evt->payload_offset, 
-																							current_evt->size);
-		spin_unlock(&LPS[LidToGid(current_lp)]->in_buffer.lock);
 		ProcessEvent[current_lp](LidToGid(current_lp), current_evt->timestamp, current_evt->type, 
-														current_evt_buffer, current_evt->size, current_state);
+															current_evt_buffer, current_evt->size, current_state);
+		if(current_evt->size>0)
+			rsfree(current_evt_buffer);
 		
-		rsfree(current_evt_buffer);
 		
 		switch_to_platform_mode();
 
@@ -297,7 +300,6 @@ void initialize_worker_thread(void) {
 
 		// Create user level thread for the current LP and initialize LP control block
 		initialize_LP(LPS_bound[t]->lid);
-
 		// Schedule an INIT event to the newly instantiated LP
 		msg_t init_event = {
 			sender: LidToGid(LPS_bound[t]->lid),
@@ -312,8 +314,10 @@ void initialize_worker_thread(void) {
 
 		// Copy the relevant string pointers to the INIT event payload
 		if(model_parameters.size > 0) {
+			spin_lock(&(LPS[init_event.receiver]->in_buffer.lock));
 			init_event.payload_offset = alloca_memoria_ingoing_buffer(init_event.receiver, model_parameters.size * sizeof(char *));
 			memcpy((LPS[init_event.receiver]->in_buffer.base) + init_event.payload_offset,  model_parameters.arguments, model_parameters.size * sizeof(char *));
+			spin_unlock(&(LPS[init_event.receiver]->in_buffer.lock));
 		}
 
 		(void)list_insert_head(LPS_bound[t]->lid, LPS_bound[t]->queue_in, &init_event);
@@ -423,11 +427,11 @@ void schedule(void) {
 	// No logical process found with events to be processed
 	if (lid == IDLE_PROCESS) {
 		statistics_post_lp_data(lid, STAT_IDLE_CYCLES, 1.0);
-      		return;
-    	}
+      	return;
+    }
 
 	// If we have to rollback
-    	if(LPS[lid]->state == LP_STATE_ROLLBACK) {
+    if(LPS[lid]->state == LP_STATE_ROLLBACK) {
 		rollback(lid);
 
 		LPS[lid]->state = LP_STATE_READY;
