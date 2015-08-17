@@ -65,6 +65,9 @@ void communication_init(void) {
 		memcpy(LPS[i]->in_buffer.base, &free_size, sizeof(unsigned));
 		//primo footer
 		memcpy(LPS[i]->in_buffer.base + INGOING_BUFFER_INITIAL_SIZE - sizeof(unsigned), &free_size, sizeof(unsigned));
+		
+		*(unsigned*) PREV_FREE_BLOCK_ADDRESS(LPS[i]->in_buffer.first_free,i) = (unsigned) IN_USE_FLAG;
+		*(unsigned*) NEXT_FREE_BLOCK_ADDRESS(LPS[i]->in_buffer.first_free,i) = (unsigned) IN_USE_FLAG;
 		LPS[i]->in_buffer.size = INGOING_BUFFER_INITIAL_SIZE;
 	}
 }
@@ -388,38 +391,46 @@ unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size){
 }
 
 //L'OPERAZIONE DI SPLIT E' UN'OPERAZIONE CHE DIVIDE UN BLOCCO DI MEMORIA E CAMBIA GLI HEADER AD ENTRAMBI
-//param addr è l'offset relativo all'header del blocco che sto allocando
-//param size è la size che mi serve in quel blocco...
+//@param addr è l'offset relativo all'header del blocco che sto allocando
+//@param size è la size che mi serve in quel blocco...
 //tutti i controlli che sia il blocco giusto sono fatti altrove!
 //ritorna il successivo libero di addr. questo può essere quello scritto in addr (quando è ancora un blocco libero)
 //o il blocco splittato (se addr è più grande di size + MIN_BLOCK_SIZE)
+//questa funzione si preoccupa anche di rimettere apposto la free list
 
 //@return l'addr del successivo blocco libero oppure IN_USE_FLAG se non c'è un successivo blocco libero
-unsigned split(unsigned addr, unsigned* size, unsigned lid){
-	
+unsigned split(unsigned addr, unsigned size, unsigned lid){
 	//aggiungo 2 unsigned perchè size è al netto degli header
-	unsigned splitted = addr + 2 * sizeof(unsigned) + (*size);
+	unsigned splitted = addr + size + 2 * sizeof(unsigned);
 	unsigned addr_size = FREE_SIZE(addr,lid); //GIÀ AL NETTO DI HEADER E FOOTER
-	
+//	printf("split: addr=%u, size=%u, splitted=%u, lid=%u",addr,*size,splitted,lid);
 	unsigned splitted_size;
 	int ret = 0;
-	unsigned size_with_flag;
 	
-	//se il blocco successivo è ancora nei limiti e non è in uso
+	//se il blocco successivo è ancora nei limiti e non è in uso, non può essere IN_USE_FLAG
+	//il flag lo usiamo solo nella free list per indicare che il prev e/o il succ non ci sono
 	if((splitted < LPS[lid]->in_buffer.size) && !IS_IN_USE(HEADER_OF(splitted,lid))){
-		splitted_size = addr_size - *size;		
-		 
+		splitted_size = addr_size - size;		
+		
 		if(splitted_size<MIN_BLOCK_DIMENSION){
 			//lo allocherò tutto
-			*size = addr_size;
+			size = addr_size;
+			//in questo caso è come se splitted non ci fosse
+			goto adegua_al_successivo;
 		}
 		
 		
-		//se il blocco successivo non è fuori dai limiti (IL CONTROLLO NON LO FACCIO XKE LHO FATTO SOPRA)
+		//se il blocco successivo non è fuori dai limiti (IL CONTROLLO NON LO FACCIO PERCHÈ LHO FATTO SOPRA)
 		//il blocco nuovo si crea solo in questo caso
 		else{
 			//il posto per h e f ricordando che le size in H e F sono al netto dell'overhead
 			splitted_size-= 2*sizeof(unsigned);
+			//controllo che il footer sia ancora dentro.. questo è un controllo di debug, questa situazione
+			//non può esserci!
+			if(splitted+splitted_size+sizeof(unsigned)>LPS[lid]->in_buffer.size){
+				printf("*********\nsplitted=%u\nsplitted_size=%u\naddr_size=%u\nsize=%u\n*********\n", splitted, splitted_size, addr_size, LPS[lid]->in_buffer.size);
+				exit(0);
+			}
 			//metto gli header al nuovo blocco che si è creato
 			memcpy(LPS[lid]->in_buffer.base + splitted, &splitted_size, sizeof(unsigned));
 			memcpy(LPS[lid]->in_buffer.base + splitted + splitted_size + sizeof(unsigned), &splitted_size, sizeof(unsigned));
@@ -440,32 +451,35 @@ unsigned split(unsigned addr, unsigned* size, unsigned lid){
 	
 	//se splitted è troppo piccolo o non esiste proprio
 	else{
+		adegua_al_successivo:
 		ret = NEXT_FREE_BLOCK(addr,lid);
-		
 		if(ret==IN_USE_FLAG || IS_IN_USE(HEADER_OF(ret,lid)) || (ret>=LPS[lid]->in_buffer.size)){
 			ret = IN_USE_FLAG;
-		}
-		else{
 			//devo cambiare il prev_free a ret e dire al prev di addr che il suo succ è ora ret
-			
-			*(unsigned*)PREV_FREE_BLOCK_ADDRESS(ret,lid) = PREV_FREE_BLOCK(addr,lid);
-			
-			memcpy(NEXT_FREE_BLOCK_ADDRESS(PREV_FREE_BLOCK(addr,lid),lid), &ret, sizeof(unsigned));
-			
+			//devo inoltre dire a ret che il suo precedente è quello di addr (se addr ha un precedente libero)
+			if(PREV_FREE_BLOCK(addr,lid)!= IN_USE_FLAG && !IS_IN_USE(HEADER_OF(PREV_FREE_BLOCK(addr,lid),lid))){
+				if(ret!=IN_USE_FLAG)
+					memcpy(PREV_FREE_BLOCK_ADDRESS(ret,lid),PREV_FREE_BLOCK_ADDRESS(addr,lid),sizeof(unsigned));
+				//va bene anche per ret.. in questo caso gli diciamo che non ha più un successivo
+				memcpy(NEXT_FREE_BLOCK_ADDRESS(PREV_FREE_BLOCK(addr,lid),lid), &ret, sizeof(unsigned));
+			}
 		}
+	
 	}
 	
+	//questa variabile va eliminata, è solo per debug
+	unsigned size_with_flag = MARK_AS_IN_USE(size);
+	
 	//DEVO AGGIORNARE L'HEADER E IL FOOTER DEL BLOCCO CHE HO APPENA ALLOCATO. RICORDA ANCHE L'OR CON IN USE
-	size_with_flag = MARK_AS_IN_USE(*size);
 	memcpy(LPS[lid]->in_buffer.base + addr, &size_with_flag, sizeof(unsigned));
-	memcpy(LPS[lid]->in_buffer.base + addr + sizeof(unsigned) + (*size), &size_with_flag, sizeof(unsigned));
+	memcpy(LPS[lid]->in_buffer.base + addr + size + sizeof(unsigned), &size_with_flag, sizeof(unsigned));
 
 	return ret;
 }
 
-//*****************************************************************************************
-//RICORDATI CHE QUESTO DEVE RESTITUIRE L'OFFSET PER IL PAYLOAD! E NON L'OFFSET DEL MESSAGGIO
-//*****************************************************************************************
+//********************************************************************************************
+//*RICORDATI CHE QUESTO DEVE RESTITUIRE L'OFFSET PER IL PAYLOAD! E NON L'OFFSET DEL MESSAGGIO*
+//********************************************************************************************
 unsigned assegna_blocco(unsigned lid, unsigned size){
 	
 	unsigned actual;
@@ -478,37 +492,41 @@ unsigned assegna_blocco(unsigned lid, unsigned size){
 		size = 2*sizeof(unsigned);
 	
 	//se FIRST_FREE è pari a IN_USE_FLAG significa che non c'è spazio libero!!
-	if(LPS[lid]->in_buffer.first_free==IN_USE_FLAG || IS_IN_USE(HEADER_OF(LPS[lid]->in_buffer.first_free,lid))){
+	if(LPS[lid]->in_buffer.first_free == IN_USE_FLAG || IS_IN_USE(HEADER_OF(LPS[lid]->in_buffer.first_free,lid)) ){
+//		printf("sto per richiedere altra memoria, con first free = %u\n", LPS[lid]->in_buffer.first_free);
 		new_off = richiedi_altra_memoria(lid);
-		new_size = new_off - 2*(sizeof(unsigned)); //al netto di h e f
+		new_size = new_off - 2*sizeof(unsigned); //al netto di h e f
 		//devo dare al nuovo blocco l'header e il footer
 		memcpy(LPS[lid]->in_buffer.base + new_off, &new_size, sizeof(unsigned));
-		memcpy(LPS[lid]->in_buffer.base + 2*new_off - sizeof(unsigned), &new_size, sizeof(unsigned));
+		memcpy(LPS[lid]->in_buffer.base + 2*new_off - sizeof(unsigned), &new_size, sizeof(unsigned));		
 		LPS[lid]->in_buffer.first_free = new_off;
-		//non c'era nessuna lista dei free quindi non va adeguata (ovviamente)
+		//non c'era nessun blocco libero... quindi il nuovo blocco libero non ha ne un successivo libero ne un prev
+		*(unsigned*) PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = (unsigned) IN_USE_FLAG;
+		*(unsigned*) NEXT_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = (unsigned) IN_USE_FLAG;
 	}
 	
 	actual = LPS[lid]->in_buffer.first_free;
-	//caso in cui FF ce la fa
+	
+//	printf("actual is %u\n", actual);
+
+	//caso in cui FF ce la fa, a questo punto sicuramente actual non è in use. Sarebbe stato messo apposto prima
 	if(HEADER_OF(actual,lid)>=size){
-		LPS[lid]->in_buffer.first_free = split(actual, &size, lid);
-		//diciamo al first_free che non ha un prev!
-		if(LPS[lid]->in_buffer.first_free!=IN_USE_FLAG) //non può essere che è un blocco in uso.. o è libero o -1
-			*(unsigned*)(PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid)) = IN_USE_FLAG; 
-		
+//		printf("lid is %u, actual is %u con dimensione = %u\n", lid, actual, HEADER_OF(actual,lid));
+		//in questo caso prendo da split il valore di ritorno che il nuovo ff. Split si preoccupa di riorganizzare
+		//la free list
+		LPS[lid]->in_buffer.first_free = split(actual, size, lid);
 		//deve ritornare l'offset per il payload!
 		return actual+sizeof(unsigned);
 	}
 	
 	//altrimenti, se FF non ce la fa
 	
-	int i=0;
-//	puts("--");
+	//a questo punto so già che actual sicuramente è un blocco libero
 	while(true){
 		succ = NEXT_FREE_BLOCK(actual,lid);
-		//Se il successivo non è un blocco utilizzabile
+		//Se il successivo non è un blocco utilizzabile, non ci sarà nessun blocco utilizzabile!
 		if(succ==IN_USE_FLAG || IS_IN_USE(HEADER_OF(succ,lid))){
-			
+//			printf("sto per richiedere altra memoria, con succ = %u\n", succ);
 			new_off = richiedi_altra_memoria(lid);
 			new_size = new_off - 2*(sizeof(unsigned)); //al netto di h e f
 			//devo dare al nuovo blocco l'header e il footer
@@ -516,7 +534,8 @@ unsigned assegna_blocco(unsigned lid, unsigned size){
 			memcpy(LPS[lid]->in_buffer.base + 2*new_off - sizeof(unsigned), &new_size, sizeof(unsigned));
 			//nel nuovo blocco pongo il prev free = actual
 			memcpy(PREV_FREE_BLOCK_ADDRESS(new_off,lid), &actual, sizeof(unsigned));
-
+			//e il next_free -1
+			*(unsigned*) NEXT_FREE_BLOCK_ADDRESS(new_off,lid) = (unsigned) IN_USE_FLAG;
 			//devo dire ad actual chi è il nuovo libero succesivo
 			memcpy(NEXT_FREE_BLOCK_ADDRESS(actual,lid), &new_off, sizeof(unsigned));
 			continue;
@@ -525,11 +544,13 @@ unsigned assegna_blocco(unsigned lid, unsigned size){
 		//altrimenti..(ossia se il successivo è utilizzabile)
 		//se il successivo ce la fa
 		if(FREE_SIZE(succ,lid)>=size){
-			split(succ, &size, lid);
+//			printf("mi sto fermando perchè succ è %u ed ha dimensione %u e ce la fa\n", succ, FREE_SIZE(succ,lid));
+			split(succ, size, lid);
 			return succ+sizeof(unsigned);
 		}
 		//se il successivo non ce la fa
 		else{
+//			printf("sto andando appresso perchè actual ha dim %u e non ce la fa\n", FREE_SIZE(actual,lid));
 			actual = succ;
 		}
 	}	
@@ -537,11 +558,13 @@ unsigned assegna_blocco(unsigned lid, unsigned size){
 }
 
 //chi lo chiama si deve preoccupare di eseguire lo spinlock
-//occhio che questa non deve fare munmap eh
 //RICORDA CHE L'OFFSET E' QUELLO DEL MESSAGGIO E NON QUELLO DEL BLOCCO (CHE CORRISPONDE CON L'HEADER!!)
 //STESSO DISCORSO PER SIZE! SIZE E' LA DIMENSIONE DEL MESSAGGIO! NON DEL BLOCCO!!
 //NON PUOI USARLA! PUÒ DARSI CHE ABBIAMO DOVUTA INGRANDIRLA PER RIEMPIRE IL BLOCCO!!
 void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
+//	puts("free");
+	if(payload_offset>=LPS[lid]->in_buffer.size)
+		exit(0);
 	unsigned header_offset = payload_offset-sizeof(unsigned); //lavorare con questo.
 //	printf("payload_offset=%u & header_offset=%u\n", payload_offset, header_offset);
 	unsigned size = MARK_AS_NOT_IN_USE(HEADER_OF(header_offset,lid));	//potrebbe essere diversa da message_size se abbiamo "arrotondato" le dimensioni del blocco
@@ -570,8 +593,9 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 	}
 	unsigned new_block_size;
 	
-	if(IS_IN_USE(prev_footer)){
-		if(IS_IN_USE(succ_header)){
+	//sono -1 se ce li ho messi io perchè sono fuori dai bordi!!
+	if(prev_footer_offset==-1 || IS_IN_USE(prev_footer)){
+		if(succ_header_offset==-1 || IS_IN_USE(succ_header)){
 			//sia prev che succ in uso
 			//caso1
 			coalesce(header_offset,footer_offset,size,lid);
@@ -583,23 +607,23 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 			succ_footer_offset = succ_header_offset + sizeof(unsigned) + succ_size;
 			//rimuovo free dalla free list
 			delete_from_free_list(succ_header_offset,lid);
-			coalesce(header_offset,succ_footer_offset,size+2*sizeof(unsigned)+succ_size,lid);
+			coalesce(header_offset,succ_footer_offset,size+succ_size+2*sizeof(unsigned),lid);
 		}
 	}
-	else if(IS_IN_USE(succ_header)){
+	else if(succ_header_offset==-1 || IS_IN_USE(succ_header)){
 		//succ in uso e prev no, escluso da prima
 		//caso3
 		prev_size = prev_footer;
 		prev_header_offset = prev_footer_offset - prev_size - sizeof(unsigned);
 		//rimuovo free dalla free list
 		delete_from_free_list(prev_header_offset,lid);
-		coalesce(prev_header_offset,footer_offset,size+2*sizeof(unsigned)+prev_size,lid);
+		coalesce(prev_header_offset,footer_offset,size+prev_size+2*sizeof(unsigned),lid);
 	}
 	else{
 		//nessuno in uso, caso 4
 		succ_size = succ_header;
-		succ_footer_offset = succ_header_offset + sizeof(unsigned) + succ_size;
 		prev_size = prev_footer;
+		succ_footer_offset = succ_header_offset + succ_size + sizeof(unsigned);
 		prev_header_offset = prev_footer_offset - prev_size - sizeof(unsigned);
 		//rimuovo free1 dalla free list
 		delete_from_free_list(prev_header_offset,lid);
@@ -609,43 +633,27 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 	}
 }
 
+//to delete è un blocco libero, lo elimino dalla free list perchè ci vorrò mettere un blocco che è la fusione
+//di to_delete e l'adiacente che sta per essere eliminato
 void delete_from_free_list(unsigned to_delete, unsigned lid){
-	if(!IS_IN_USE(HEADER_OF(PREV_FREE_BLOCK(to_delete,lid),lid)) && PREV_FREE_BLOCK(to_delete,lid)!=-1)
+	//io voglio dire al precedente che il next è cambiato.. devo quindi controllare che il precedente
+	//sia davvero un blocco libero e non un fake pointer
+	if(PREV_FREE_BLOCK(to_delete,lid)!=IN_USE_FLAG && !IS_IN_USE(HEADER_OF(PREV_FREE_BLOCK(to_delete,lid),lid)))
 		memcpy(NEXT_FREE_BLOCK_ADDRESS(PREV_FREE_BLOCK(to_delete,lid),lid), NEXT_FREE_BLOCK_ADDRESS(to_delete,lid),sizeof(unsigned));
-	if(!IS_IN_USE(HEADER_OF(NEXT_FREE_BLOCK(to_delete,lid),lid)) && NEXT_FREE_BLOCK(to_delete,lid)!=-1)
+	
+	//io voglio dire al successivo che il precedente è cambiato.. devo quindi controllare che il successivo sia 
+	//davvero un blocco libero e non un fake pointer
+	if(NEXT_FREE_BLOCK(to_delete,lid)!=IN_USE_FLAG && !IS_IN_USE(HEADER_OF(NEXT_FREE_BLOCK(to_delete,lid),lid)))
 		memcpy(PREV_FREE_BLOCK_ADDRESS(NEXT_FREE_BLOCK(to_delete,lid),lid), PREV_FREE_BLOCK_ADDRESS(to_delete,lid),sizeof(unsigned));
 }
 
 //nuovo header nuovo footer e
 //size al netto di h e f
 void coalesce(unsigned header, unsigned footer, unsigned size, unsigned lid){
-//	printf("%u\n", size);
 	bzero(PAYLOAD_OF(header,lid),size);
-	*(unsigned*)(LPS[lid]->in_buffer.base + header) = size;
-	*(unsigned*)(LPS[lid]->in_buffer.base + footer) = size;
+	memcpy(LPS[lid]->in_buffer.base + header, &size, sizeof(unsigned));
+	memcpy(LPS[lid]->in_buffer.base + footer, &size, sizeof(unsigned));
 	memcpy(NEXT_FREE_BLOCK_ADDRESS(header,lid), &LPS[lid]->in_buffer.first_free, sizeof(unsigned));
+	*(unsigned*)PREV_FREE_BLOCK_ADDRESS(header,lid) = IN_USE_FLAG;
 	LPS[lid]->in_buffer.first_free = header;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

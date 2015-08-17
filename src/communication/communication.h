@@ -84,9 +84,9 @@ enum _control_msgs {
 //#define INGOING_BUFFER_INITIAL_SIZE ((1<<20)	/ (1024)) // TEST REALLOC
 
 
-#define INGOING_BUFFER_GROW_FACTOR 2
+#define INGOING_BUFFER_GROW_FACTOR (2)
 
-#define IN_USE_FLAG (unsigned) 0x80000000
+#define IN_USE_FLAG ((unsigned) (0x80000000))
 
 #define MARK_AS_IN_USE(SIZE) ((SIZE) | (IN_USE_FLAG))
 
@@ -121,7 +121,7 @@ enum _control_msgs {
 
 //L'INDICAZIONE SE È OCCUPATO O MENO È NELL'HEADER E NEL FOOTER
 typedef struct _ingoing_buffer{
-	void* base;
+	void*	 base;
 	//first_free sarà offset in quanto può essere tutto spostato con realloc
 	unsigned first_free;
 	unsigned size;
@@ -157,10 +157,10 @@ extern void ParallelScheduleNewEvent(unsigned int, simtime_t, unsigned int, void
 
 
 unsigned alloca_memoria_ingoing_buffer(unsigned , unsigned);
-void dealloca_memoria_ingoing_buffer(unsigned int, unsigned);
+void dealloca_memoria_ingoing_buffer(unsigned, unsigned);
 unsigned richiedi_altra_memoria(unsigned lid);
 unsigned assegna_blocco(unsigned lid, unsigned size);
-unsigned split(unsigned addr, unsigned* size, unsigned lid);
+unsigned split(unsigned addr, unsigned size, unsigned lid);
 void coalesce(unsigned,unsigned,unsigned,unsigned);
 void delete_from_free_list(unsigned, unsigned);
 
