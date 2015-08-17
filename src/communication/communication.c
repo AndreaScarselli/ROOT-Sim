@@ -56,6 +56,8 @@ void communication_init(void) {
 //	windows_init()
 	int i;
 	for(i=0;i<n_prc;i++){
+		//DEBUG
+		spin_lock(&(LPS[i]->in_buffer.lock));
 		unsigned free_size = INGOING_BUFFER_INITIAL_SIZE - 2 * sizeof(unsigned);
 		LPS[i]->in_buffer.base = pool_get_memory(LPS[i]->lid, INGOING_BUFFER_INITIAL_SIZE);
 		LPS[i]->in_buffer.in_use=0;
@@ -70,6 +72,9 @@ void communication_init(void) {
 		*(unsigned*) PREV_FREE_BLOCK_ADDRESS(LPS[i]->in_buffer.first_free,i) = (unsigned) IN_USE_FLAG;
 		*(unsigned*) NEXT_FREE_BLOCK_ADDRESS(LPS[i]->in_buffer.first_free,i) = (unsigned) IN_USE_FLAG;
 		LPS[i]->in_buffer.size = INGOING_BUFFER_INITIAL_SIZE;
+		//DEBUG
+		spin_unlock(&(LPS[i]->in_buffer.lock));
+
 	}
 }
 
@@ -499,6 +504,8 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 //********************************************************************************************
 unsigned assegna_blocco(unsigned lid, unsigned size){
 	
+//	printf("lid is %u, HEader of ff is %u\n", lid, HEADER_OF(LPS[lid]->in_buffer.first_free,lid));
+	
 	unsigned actual;
 	unsigned succ;
 	unsigned new_off;
@@ -509,9 +516,9 @@ unsigned assegna_blocco(unsigned lid, unsigned size){
 		size = 2*sizeof(unsigned);
 	
 	//se FIRST_FREE è pari a IN_USE_FLAG significa che non c'è spazio libero!!
-	/*if(LPS[lid]->in_buffer.first_free == IN_USE_FLAG || IS_IN_USE(HEADER_OF(LPS[lid]->in_buffer.first_free,lid)) ){
+	if(LPS[lid]->in_buffer.first_free == IN_USE_FLAG || IS_IN_USE(HEADER_OF(LPS[lid]->in_buffer.first_free,lid)) ){
 //		printf("sto per richiedere altra memoria, con first free = %u\n", LPS[lid]->in_buffer.first_free);
-		printf("ff is %u & his Header is \n", LPS[lid]->in_buffer.first_free);
+//		printf("ff is %u & his Header is \n", LPS[lid]->in_buffer.first_free);
 		new_off = richiedi_altra_memoria(lid);
 		new_size = new_off - 2*sizeof(unsigned); //al netto di h e f
 		//devo dare al nuovo blocco l'header e il footer
@@ -521,7 +528,7 @@ unsigned assegna_blocco(unsigned lid, unsigned size){
 		//non c'era nessun blocco libero... quindi il nuovo blocco libero non ha ne un successivo libero ne un prev
 		*(unsigned*) PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = (unsigned) IN_USE_FLAG;
 		*(unsigned*) NEXT_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = (unsigned) IN_USE_FLAG;
-	}*/
+	}
 	
 	actual = LPS[lid]->in_buffer.first_free;
 	
@@ -533,23 +540,6 @@ unsigned assegna_blocco(unsigned lid, unsigned size){
 		//in questo caso prendo da split il valore di ritorno che il nuovo ff. Split si preoccupa di riorganizzare
 		//la free list
 		LPS[lid]->in_buffer.first_free = split(actual, size, lid);
-		
-		//se il first_free diventa pari a IN_USE significa che non c'è più spazio libero. Faccio la riallocazione 
-		//adesso;
-		//questo implica che first_free non potrà mai mancare!!
-		
-		if(LPS[lid]->in_buffer.first_free == IN_USE_FLAG){
-			puts("ff in uso");
-			new_off = richiedi_altra_memoria(lid);
-			new_size = new_off - 2*sizeof(unsigned); //al netto di h e f
-			//devo dare al nuovo blocco l'header e il footer
-			memcpy(LPS[lid]->in_buffer.base + new_off, &new_size, sizeof(unsigned));
-			memcpy(LPS[lid]->in_buffer.base + 2*new_off - sizeof(unsigned), &new_size, sizeof(unsigned));		
-			LPS[lid]->in_buffer.first_free = new_off;
-			//non c'era nessun blocco libero... quindi il nuovo blocco libero non ha ne un successivo libero ne un prev
-			*(unsigned*) PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = (unsigned) IN_USE_FLAG;
-			*(unsigned*) NEXT_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = (unsigned) IN_USE_FLAG;
-		}
 			
 		//deve ritornare l'offset per il payload!
 		return actual+sizeof(unsigned);
@@ -681,6 +671,12 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 //to delete è un blocco libero, lo elimino dalla free list perchè ci vorrò mettere un blocco che è la fusione
 //di to_delete e l'adiacente che sta per essere eliminato
 void delete_from_free_list(unsigned to_delete, unsigned lid){
+
+	if(to_delete==LPS[lid]->in_buffer.first_free){
+		LPS[lid]->in_buffer.first_free = NEXT_FREE_BLOCK(LPS[lid]->in_buffer.first_free,lid);
+		//se il nuovo ff è un blocco reale digli che il suo prev_free non esiste più
+	}
+	
 	//io voglio dire al precedente che il next è cambiato.. devo quindi controllare che il precedente
 	//sia davvero un blocco libero e non un fake pointer
 	if(PREV_FREE_BLOCK(to_delete,lid)!=IN_USE_FLAG && !IS_IN_USE(HEADER_OF(PREV_FREE_BLOCK(to_delete,lid),lid)))

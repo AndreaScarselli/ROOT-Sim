@@ -64,22 +64,19 @@ void fossil_collection(unsigned int lid, simtime_t time_barrier) {
 		state->last_event = (void *)0xDEADBABE;
 		list_pop(lid, LPS[lid]->queue_states);
 	}
-
 	// Determine queue pruning horizon
 	last_kept_event = list_head(LPS[lid]->queue_states)->last_event;
 	actual = list_prev(last_kept_event);
 	
 	//libero la memoria usata per il payload
+	spin_lock(&LPS[lid]->in_buffer.lock);
 	while(actual!=NULL){
-		if(actual->size>0){
-			spin_lock(&LPS[actual->receiver]->in_buffer.lock);
-//					printf("in fossil l'offset è%u\n", actual->payload_offset);
-
+		if(actual->size>0)
 			dealloca_memoria_ingoing_buffer(actual->receiver, actual->payload_offset);
-			spin_unlock(&LPS[actual->receiver]->in_buffer.lock);
-		}
 		actual = list_prev(actual);
 	}
+	spin_unlock(&LPS[lid]->in_buffer.lock);
+
 
 	// Truncate the input queue, accounting for the event which is pointed by the lastly kept state
 	committed_events = (double)list_trunc_before(lid, LPS[lid]->queue_in, timestamp, last_kept_event->timestamp);
