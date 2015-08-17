@@ -324,15 +324,11 @@ void pool_release_memory(unsigned int lid, void *ptr) {
 }
 
 void* pool_realloc_memory(unsigned int lid, unsigned new_size, void* old_ptr){
-//	printf("pool_realloc per il lid %u, new_size is %u\n", lid, new_size);
-	printf("RIALLOCAZIONE PER IL LID %u LPS[lid]->in_buffer.size=%u & LPS[lid]->in_buffer.in_use=%u\n", lid, LPS[lid]->in_buffer.size, LPS[lid]->in_buffer.in_use);
+	printf("pool_realloc per il lid %u, new_size is %u\n", lid, new_size);
 	int old_size = new_size / INGOING_BUFFER_GROW_FACTOR;
-//	printf("sto per chiamare pool_get_memory con lid=%u e new_size=%d	\n", lid, new_size);
 	void* new_ptr = pool_get_memory(lid, new_size);
-//	printf("new_ptr is %p  &&  old_ptr is %p\n", new_ptr,old_ptr);
 	memcpy(new_ptr, old_ptr, old_size);
 	pool_release_memory(lid, old_ptr);
-	//printf("fine del realloc: new_ptr=%x\n", new_ptr);
 	return new_ptr;
 }
 
