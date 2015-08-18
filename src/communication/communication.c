@@ -66,8 +66,8 @@ void communication_init(void) {
 		//primo footer
 		memcpy(LPS[i]->in_buffer.base + INGOING_BUFFER_INITIAL_SIZE - sizeof(unsigned), &free_size, sizeof(unsigned));
 		
-		*(unsigned*) PREV_FREE_BLOCK_ADDRESS(LPS[i]->in_buffer.first_free,i) = (unsigned) IN_USE_FLAG;
-		*(unsigned*) NEXT_FREE_BLOCK_ADDRESS(LPS[i]->in_buffer.first_free,i) = (unsigned) IN_USE_FLAG;
+		*(unsigned*) PREV_FREE_BLOCK_ADDRESS(LPS[i]->in_buffer.first_free,i) = IN_USE_FLAG;
+		*(unsigned*) NEXT_FREE_BLOCK_ADDRESS(LPS[i]->in_buffer.first_free,i) = IN_USE_FLAG;
 		LPS[i]->in_buffer.size = INGOING_BUFFER_INITIAL_SIZE;
 	}
 }
@@ -373,7 +373,7 @@ void send_outgoing_msgs(unsigned int lid) {
 //@return il primo offset del nuovo blocco (che corrisponde alla size precedente). 
 unsigned richiedi_altra_memoria(unsigned lid){
 	unsigned ret = LPS[lid]->in_buffer.size;
-	unsigned new_size = (LPS[lid]->in_buffer.size) * INGOING_BUFFER_GROW_FACTOR;
+	unsigned new_size = LPS[lid]->in_buffer.size * INGOING_BUFFER_GROW_FACTOR;
 	LPS[lid]->in_buffer.base = pool_realloc_memory(lid, new_size, LPS[lid]->in_buffer.base);
 	LPS[lid]->in_buffer.size = new_size;
 	return ret;
@@ -403,8 +403,8 @@ unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size){
 		memcpy(LPS[lid]->in_buffer.base + 2*new_off - sizeof(unsigned), &new_size, sizeof(unsigned));		
 		LPS[lid]->in_buffer.first_free = new_off;
 		//non c'era nessun blocco libero... quindi il nuovo blocco libero non ha ne un successivo libero ne un prev
-		*(unsigned*) PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = (unsigned) IN_USE_FLAG;
-		*(unsigned*) NEXT_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = (unsigned) IN_USE_FLAG;
+		*(unsigned*) PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = IN_USE_FLAG;
+		*(unsigned*) NEXT_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = IN_USE_FLAG;
 	}
 	
 	actual = LPS[lid]->in_buffer.first_free;
@@ -425,14 +425,14 @@ unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size){
 		//Se il successivo non è un blocco utilizzabile, non ci sarà nessun blocco utilizzabile!
 		if(succ==IN_USE_FLAG || IS_IN_USE(HEADER_OF(succ,lid))){
 			new_off = richiedi_altra_memoria(lid);
-			new_size = new_off - 2*(sizeof(unsigned)); //al netto di h e f
+			new_size = new_off - 2*sizeof(unsigned); //al netto di h e f
 			//devo dare al nuovo blocco l'header e il footer
 			memcpy(LPS[lid]->in_buffer.base + new_off, &new_size, sizeof(unsigned));
 			memcpy(LPS[lid]->in_buffer.base + 2*new_off - sizeof(unsigned), &new_size, sizeof(unsigned));
 			//nel nuovo blocco pongo il prev free = actual
 			memcpy(PREV_FREE_BLOCK_ADDRESS(new_off,lid), &actual, sizeof(unsigned));
 			//e il next_free IN_USE
-			*(unsigned*) NEXT_FREE_BLOCK_ADDRESS(new_off,lid) = (unsigned) IN_USE_FLAG;
+			*(unsigned*) NEXT_FREE_BLOCK_ADDRESS(new_off,lid) = IN_USE_FLAG;
 			//devo dire ad actual chi è il nuovo libero succesivo
 			memcpy(NEXT_FREE_BLOCK_ADDRESS(actual,lid), &new_off, sizeof(unsigned));
 			continue;

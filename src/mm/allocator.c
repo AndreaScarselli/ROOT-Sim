@@ -38,7 +38,7 @@
 
 #include <mm/dymelor.h>
 #include <mm/allocator.h>
-#include <scheduler/process.h> //BRUTTO!! SOLO PER GROW FACTOR... CAMBIARE QUESTA COSA
+#include <scheduler/process.h> 
 
 
 extern void *__real_malloc(size_t);
@@ -274,7 +274,7 @@ mdt_entry* get_new_mdt_entry(int sobj){
 int release_mdt_entry(int sobj, mdt_entry* mdt){
 	mem_map* m_map;
 		
-	if( (sobj < 0)||(sobj>=handled_sobjs) ) return MDT_RELEASE_FAILURE; 
+	if( sobj < 0 || sobj>=handled_sobjs ) return MDT_RELEASE_FAILURE; 
 
 	m_map = &maps[sobj]; 
 
