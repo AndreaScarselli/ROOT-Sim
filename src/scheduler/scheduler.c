@@ -264,7 +264,25 @@ void initialize_LP(unsigned int lp) {
 
 	// Initialize the LP lock
 	spinlock_init(&LPS[lp]->lock);
-
+	
+	
+	//Initialize ingoing buffer
+	spinlock_init(&LPS[lp]->in_buffer.lock);
+	spin_lock(&LPS[lp]->in_buffer.lock);
+	unsigned free_size = INGOING_BUFFER_INITIAL_SIZE - 2 * sizeof(unsigned);
+	LPS[lp]->in_buffer.base = pool_get_memory(LPS[lp]->lid, INGOING_BUFFER_INITIAL_SIZE);
+	//offset 0
+	LPS[lp]->in_buffer.first_free = 0;
+	//primo header, ricorda che le dimensioni sono già al netto di header e footer
+	memcpy(LPS[lp]->in_buffer.base, &free_size, sizeof(unsigned));
+	//primo footer
+	memcpy(LPS[lp]->in_buffer.base + INGOING_BUFFER_INITIAL_SIZE - sizeof(unsigned), &free_size, sizeof(unsigned));
+	*(unsigned*) PREV_FREE_BLOCK_ADDRESS(LPS[lp]->in_buffer.first_free,lp) = IN_USE_FLAG;
+	*(unsigned*) NEXT_FREE_BLOCK_ADDRESS(LPS[lp]->in_buffer.first_free,lp) = IN_USE_FLAG;
+	LPS[lp]->in_buffer.size = INGOING_BUFFER_INITIAL_SIZE;
+	LPS[lp]->in_buffer.in_use = 0;
+	spin_unlock(&LPS[lp]->in_buffer.lock);
+	
 	LPS[lp]->outgoing_buffer.min_in_transit = rsalloc(sizeof(simtime_t) * n_cores);
 	for(i = 0; i < n_cores; i++) {
 		LPS[lp]->outgoing_buffer.min_in_transit[i] = INFTY;

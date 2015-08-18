@@ -54,22 +54,25 @@ void (* ScheduleNewEvent)(unsigned int gid_receiver, simtime_t timestamp, unsign
 */
 void communication_init(void) {
 //	windows_init()
+/*
+ * 
+	unsigned free_size = INGOING_BUFFER_INITIAL_SIZE - 2 * sizeof(unsigned);
 	int i;
 	for(i=0;i<n_prc;i++){
-		unsigned free_size = INGOING_BUFFER_INITIAL_SIZE - 2 * sizeof(unsigned);
 		LPS[i]->in_buffer.base = pool_get_memory(LPS[i]->lid, INGOING_BUFFER_INITIAL_SIZE);
 		//offset 0
 		LPS[i]->in_buffer.first_free = 0;
-		
 		//primo header, ricorda che le dimensioni sono già al netto di header e footer
 		memcpy(LPS[i]->in_buffer.base, &free_size, sizeof(unsigned));
 		//primo footer
 		memcpy(LPS[i]->in_buffer.base + INGOING_BUFFER_INITIAL_SIZE - sizeof(unsigned), &free_size, sizeof(unsigned));
-		
 		*(unsigned*) PREV_FREE_BLOCK_ADDRESS(LPS[i]->in_buffer.first_free,i) = IN_USE_FLAG;
 		*(unsigned*) NEXT_FREE_BLOCK_ADDRESS(LPS[i]->in_buffer.first_free,i) = IN_USE_FLAG;
 		LPS[i]->in_buffer.size = INGOING_BUFFER_INITIAL_SIZE;
+		LPS[i]->in_buffer.in_use = 0;
 	}
+	* 
+	*/
 }
 
 
@@ -521,6 +524,7 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 		}
 	
 	}
+	LPS[lid]->in_buffer.in_use += size;
 	
 	//DEVO AGGIORNARE L'HEADER E IL FOOTER DEL BLOCCO CHE HO APPENA ALLOCATO. RICORDA ANCHE L'OR CON IN USE
 	*HEADER_ADDRESS_OF(addr,lid) = MARK_AS_IN_USE(size);
@@ -618,6 +622,7 @@ void delete_from_free_list(unsigned to_delete, unsigned lid){
 //nuovo header nuovo footer e
 //size al netto di h e f
 void coalesce(unsigned header, unsigned footer, unsigned size, unsigned lid){
+	LPS[lid]->in_buffer.in_use-=size;
 	bzero(PAYLOAD_OF(header,lid),size);
 	*HEADER_ADDRESS_OF(header, lid) = size;
 	*FOOTER_ADDRESS_OF(header, size, lid) = size;
