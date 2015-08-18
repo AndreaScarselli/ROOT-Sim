@@ -304,18 +304,13 @@ void *pool_get_memory(unsigned int lid, size_t size) {
 
 void pool_release_memory(unsigned int lid, void *ptr) {
 	//il ptr che arriva qua è un ptr ad un segmento. devo prima trovare la mdt_entry ad esso associata.
-//	puts("pool_release");
 	int i;
 	
 	for(i=0; i < maps[lid].size; i++){
 		if((((mdt_entry*)maps[lid].base )+i)->addr == ptr){
-//				puts("found");
 				munmap(ptr, ( ( (mdt_entry*)maps[lid].base )+i) -> numpages * PAGE_SIZE);
 				
 				release_mdt_entry(lid, (((mdt_entry*)maps[lid].base )+i));
-				
-//				(((mdt_entry*)maps[lid].base) +i)->addr = NULL;
-//				(((mdt_entry*)maps[lid].base) +i)->numpages = 0;
 				maps[lid].active -= 1;
 		}
 	}
