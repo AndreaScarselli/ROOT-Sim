@@ -399,12 +399,12 @@ unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size){
 		new_off = richiedi_altra_memoria(lid);
 		new_size = new_off - 2*sizeof(unsigned); //al netto di h e f
 		//devo dare al nuovo blocco l'header e il footer
-		memcpy(LPS[lid]->in_buffer.base + new_off, &new_size, sizeof(unsigned));
-		memcpy(LPS[lid]->in_buffer.base + 2*new_off - sizeof(unsigned), &new_size, sizeof(unsigned));		
+		*HEADER_ADDRESS_OF(new_off,lid) = new_size;
+		*FOOTER_ADDRESS_OF(new_off,new_size,lid) = new_size;	
 		LPS[lid]->in_buffer.first_free = new_off;
 		//non c'era nessun blocco libero... quindi il nuovo blocco libero non ha ne un successivo libero ne un prev
-		*(unsigned*) PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = IN_USE_FLAG;
-		*(unsigned*) NEXT_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = IN_USE_FLAG;
+		*PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = IN_USE_FLAG;
+		*NEXT_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = IN_USE_FLAG;
 	}
 	
 	actual = LPS[lid]->in_buffer.first_free;
@@ -427,14 +427,14 @@ unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size){
 			new_off = richiedi_altra_memoria(lid);
 			new_size = new_off - 2*sizeof(unsigned); //al netto di h e f
 			//devo dare al nuovo blocco l'header e il footer
-			memcpy(LPS[lid]->in_buffer.base + new_off, &new_size, sizeof(unsigned));
-			memcpy(LPS[lid]->in_buffer.base + 2*new_off - sizeof(unsigned), &new_size, sizeof(unsigned));
+			*HEADER_ADDRESS_OF(new_off,lid) = new_size;
+			*FOOTER_ADDRESS_OF(new_off,new_size,lid) = new_size;
 			//nel nuovo blocco pongo il prev free = actual
-			memcpy(PREV_FREE_BLOCK_ADDRESS(new_off,lid), &actual, sizeof(unsigned));
+			*PREV_FREE_BLOCK_ADDRESS(new_off,lid) = actual;
 			//e il next_free IN_USE
-			*(unsigned*) NEXT_FREE_BLOCK_ADDRESS(new_off,lid) = IN_USE_FLAG;
+			*NEXT_FREE_BLOCK_ADDRESS(new_off,lid) = IN_USE_FLAG;
 			//devo dire ad actual chi è il nuovo libero succesivo
-			memcpy(NEXT_FREE_BLOCK_ADDRESS(actual,lid), &new_off, sizeof(unsigned));
+			*NEXT_FREE_BLOCK_ADDRESS(actual,lid) = new_off;
 			continue;
 		}
 		
@@ -488,8 +488,8 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 			//il posto per h e f ricordando che le size in H e F sono al netto dell'overhead
 			splitted_size-= 2*sizeof(unsigned);
 			//metto gli header al nuovo blocco che si è creato
-			memcpy(LPS[lid]->in_buffer.base + splitted, &splitted_size, sizeof(unsigned));
-			memcpy(LPS[lid]->in_buffer.base + splitted + splitted_size + sizeof(unsigned), &splitted_size, sizeof(unsigned));
+			*HEADER_ADDRESS_OF(splitted,lid) = splitted_size;
+			*FOOTER_ADDRESS_OF(splitted, splitted_size , lid) = splitted_size;
 			//copio il next free e il prev free!!
 			memcpy(NEXT_FREE_BLOCK_ADDRESS(splitted,lid), NEXT_FREE_BLOCK_ADDRESS(addr,lid), sizeof(unsigned));
 			memcpy(PREV_FREE_BLOCK_ADDRESS(splitted,lid), PREV_FREE_BLOCK_ADDRESS(addr,lid), sizeof(unsigned));
@@ -523,8 +523,8 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 	}
 	
 	//DEVO AGGIORNARE L'HEADER E IL FOOTER DEL BLOCCO CHE HO APPENA ALLOCATO. RICORDA ANCHE L'OR CON IN USE
-	*(unsigned*)(LPS[lid]->in_buffer.base + addr) = MARK_AS_IN_USE(size);
-	*(unsigned*)(LPS[lid]->in_buffer.base + addr + size + sizeof(unsigned)) = MARK_AS_IN_USE(size);
+	*HEADER_ADDRESS_OF(addr,lid) = MARK_AS_IN_USE(size);
+	*FOOTER_ADDRESS_OF(addr,size,lid) = MARK_AS_IN_USE(size);
 
 	return ret;
 }
@@ -619,8 +619,8 @@ void delete_from_free_list(unsigned to_delete, unsigned lid){
 //size al netto di h e f
 void coalesce(unsigned header, unsigned footer, unsigned size, unsigned lid){
 	bzero(PAYLOAD_OF(header,lid),size);
-	memcpy(LPS[lid]->in_buffer.base + header, &size, sizeof(unsigned));
-	memcpy(LPS[lid]->in_buffer.base + footer, &size, sizeof(unsigned));
+	*HEADER_ADDRESS_OF(header, lid) = size;
+	*FOOTER_ADDRESS_OF(header, size, lid) = size;
 	//questa situazione può crearsi anche da delete_from_free_list
 	if(LPS[lid]->in_buffer.first_free!=IN_USE_FLAG && !IS_IN_USE(HEADER_OF(LPS[lid]->in_buffer.first_free,lid)))
 		memcpy(PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid), &header, sizeof(unsigned));

@@ -92,7 +92,7 @@ enum _control_msgs {
 
 #define MARK_AS_NOT_IN_USE(SIZE) ((SIZE) & (~IN_USE_FLAG))
 
-#define IS_IN_USE(ADDR) ( ( (ADDR) & (IN_USE_FLAG) ) != 0 )
+#define IS_IN_USE(SIZE) ( ( (SIZE) & (IN_USE_FLAG) ) != 0 )
 
 //HEADER FOTTER & 2 OFFSET. 
 #define MIN_BLOCK_DIMENSION ((4)*(sizeof(unsigned)))
@@ -100,6 +100,12 @@ enum _control_msgs {
 
 //QUESTO "RESTITUISCE" UN UNSIGNED (L'HEADER APPUNTO)
 #define HEADER_OF(OFFSET,LID) (*((unsigned*) (((LPS[LID]->in_buffer.base)+(OFFSET)) )))
+
+//RESTITUISCE L'INDIRIZZO DELL'HEADER
+#define HEADER_ADDRESS_OF(OFFSET,LID) ((unsigned*) (((LPS[LID]->in_buffer.base)+(OFFSET)) ))
+
+//RESTITUISCE L'INDIRIZZO DEL FOOTER
+#define FOOTER_ADDRESS_OF(OFFSET,SIZE,LID) ((unsigned*) (( (LPS[LID]->in_buffer.base) + (OFFSET) + (sizeof(unsigned)) + (SIZE) ) ))
 
 //QUESTO "RESTITUISCE" un indirizzo
 #define PAYLOAD_OF(OFFSET,LID) ((LPS[LID]->in_buffer.base)+(OFFSET)+(sizeof(unsigned)))
@@ -111,13 +117,13 @@ enum _control_msgs {
 #define NEXT_FREE_BLOCK(OFFSET,LID) (*((unsigned*)((LPS[LID]->in_buffer.base) + (OFFSET) + (2*sizeof(unsigned)))))
 
 //INDIRIZO IN CUI È SCRITTO IL NEXT_FREE
-#define NEXT_FREE_BLOCK_ADDRESS(OFFSET,LID) ((LPS[LID]->in_buffer.base) + (OFFSET) + (2*sizeof(unsigned)))
+#define NEXT_FREE_BLOCK_ADDRESS(OFFSET,LID) ((unsigned*)((LPS[LID]->in_buffer.base) + (OFFSET) + (2*sizeof(unsigned))))
 
 //occhio che questo "ritorna" l'offset del precedente al blocco che ha header in offset non l'indirizzo
 #define PREV_FREE_BLOCK(OFFSET,LID) (*((unsigned*)((LPS[LID]->in_buffer.base) + (OFFSET) + (sizeof(unsigned)))))
 
 //INDIRIZO IN CUI È SCRITTO IL PREV_FREE
-#define PREV_FREE_BLOCK_ADDRESS(OFFSET,LID) ((LPS[LID]->in_buffer.base) + (OFFSET) + (sizeof(unsigned)))
+#define PREV_FREE_BLOCK_ADDRESS(OFFSET,LID) ((unsigned*)(((LPS[LID]->in_buffer.base) + (OFFSET) + (sizeof(unsigned)))))
 
 //L'INDICAZIONE SE È OCCUPATO O MENO È NELL'HEADER E NEL FOOTER
 typedef struct _ingoing_buffer{
