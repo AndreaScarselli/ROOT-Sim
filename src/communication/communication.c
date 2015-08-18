@@ -524,7 +524,6 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 		}
 	
 	}
-	LPS[lid]->in_buffer.in_use += size;
 	
 	//DEVO AGGIORNARE L'HEADER E IL FOOTER DEL BLOCCO CHE HO APPENA ALLOCATO. RICORDA ANCHE L'OR CON IN USE
 	*HEADER_ADDRESS_OF(addr,lid) = MARK_AS_IN_USE(size);
@@ -622,7 +621,6 @@ void delete_from_free_list(unsigned to_delete, unsigned lid){
 //nuovo header nuovo footer e
 //size al netto di h e f
 void coalesce(unsigned header, unsigned footer, unsigned size, unsigned lid){
-	LPS[lid]->in_buffer.in_use-=size;
 	bzero(PAYLOAD_OF(header,lid),size);
 	*HEADER_ADDRESS_OF(header, lid) = size;
 	*FOOTER_ADDRESS_OF(header, size, lid) = size;

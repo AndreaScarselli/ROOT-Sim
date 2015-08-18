@@ -131,7 +131,6 @@ typedef struct _ingoing_buffer{
 	//first_free sarà offset in quanto può essere tutto spostato con realloc
 	unsigned first_free;
 	unsigned size;
-	unsigned in_use;
 	spinlock_t lock;
 }ingoing_buffer;
 

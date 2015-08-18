@@ -274,13 +274,12 @@ void initialize_LP(unsigned int lp) {
 	//offset 0
 	LPS[lp]->in_buffer.first_free = 0;
 	//primo header, ricorda che le dimensioni sono già al netto di header e footer
-	memcpy(LPS[lp]->in_buffer.base, &free_size, sizeof(unsigned));
+	*HEADER_ADDRESS_OF(LPS[lp]->in_buffer.first_free,lp) = free_size;
 	//primo footer
-	memcpy(LPS[lp]->in_buffer.base + INGOING_BUFFER_INITIAL_SIZE - sizeof(unsigned), &free_size, sizeof(unsigned));
-	*(unsigned*) PREV_FREE_BLOCK_ADDRESS(LPS[lp]->in_buffer.first_free,lp) = IN_USE_FLAG;
-	*(unsigned*) NEXT_FREE_BLOCK_ADDRESS(LPS[lp]->in_buffer.first_free,lp) = IN_USE_FLAG;
+	*FOOTER_ADDRESS_OF(LPS[lp]->in_buffer.first_free,free_size,lp) = free_size;
+	*PREV_FREE_BLOCK_ADDRESS(LPS[lp]->in_buffer.first_free,lp) = IN_USE_FLAG;
+	*NEXT_FREE_BLOCK_ADDRESS(LPS[lp]->in_buffer.first_free,lp) = IN_USE_FLAG;
 	LPS[lp]->in_buffer.size = INGOING_BUFFER_INITIAL_SIZE;
-	LPS[lp]->in_buffer.in_use = 0;
 	spin_unlock(&LPS[lp]->in_buffer.lock);
 	
 	LPS[lp]->outgoing_buffer.min_in_transit = rsalloc(sizeof(simtime_t) * n_cores);
