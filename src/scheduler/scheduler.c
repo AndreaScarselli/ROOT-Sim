@@ -173,13 +173,27 @@ static void LP_main_loop(void *args) {
 	(void)args; // this is to make the compiler stop complaining about unused args
 	void* current_evt_buffer=NULL;
 	
+	
 	// Save a default context
 	#ifdef ENABLE_ULT
 	context_save(&LPS[current_lp]->default_context);
 	#endif
+	int i = 0;
 
 	while(true) {
+		
+		spin_lock(&LPS[current_lp]->in_buffer.lock[1]);
+		//
+		if(LPS[current_lp]->in_buffer.size[1]<LPS[current_lp]->in_buffer.size[0]){
+			//LPS[current_lp]->in_buffer.base[1] = pool_realloc_memory(current_lp, LPS[current_lp]->in_buffer.size[0] * INGOING_BUFFER_GROW_FACTOR, LPS[current_lp]->in_buffer.base[1]);
+			pool_release_memory(current_lp, LPS[current_lp]->in_buffer.base[1]);
+			LPS[current_lp]->in_buffer.base[1] = pool_get_memory(current_lp, LPS[current_lp]->in_buffer.size[0] * INGOING_BUFFER_GROW_FACTOR);
+			LPS[current_lp]->in_buffer.size[1] = LPS[current_lp]->in_buffer.size[0] * INGOING_BUFFER_GROW_FACTOR;
+		}
+		//
+		spin_unlock(&LPS[current_lp]->in_buffer.lock[1]);
 
+		
 		// Process the event
 		timer event_timer;
 		timer_start(event_timer);
@@ -190,9 +204,9 @@ static void LP_main_loop(void *args) {
 		if(current_evt->size>0){
 			current_evt_buffer=rsalloc(current_evt->size);
 			
-			spin_lock(&LPS[LidToGid(current_lp)]->in_buffer.lock);
-			memcpy(current_evt_buffer, (LPS[current_lp]->in_buffer.base) + current_evt->payload_offset, current_evt->size);
-			spin_unlock(&LPS[LidToGid(current_lp)]->in_buffer.lock);
+			spin_lock(&LPS[LidToGid(current_lp)]->in_buffer.lock[0]);
+			memcpy(current_evt_buffer, LPS[current_lp]->in_buffer.base[0] + current_evt->payload_offset, current_evt->size);
+			spin_unlock(&LPS[LidToGid(current_lp)]->in_buffer.lock[0]);
 		}
 		
 		ProcessEvent[current_lp](LidToGid(current_lp), current_evt->timestamp, current_evt->type, 
@@ -267,10 +281,13 @@ void initialize_LP(unsigned int lp) {
 	
 	
 	//Initialize ingoing buffer
-	spinlock_init(&LPS[lp]->in_buffer.lock);
-	spin_lock(&LPS[lp]->in_buffer.lock);
+	spinlock_init(&LPS[lp]->in_buffer.lock[0]);
+	spinlock_init(&LPS[lp]->in_buffer.lock[1]);
+	
+	spin_lock(&LPS[lp]->in_buffer.lock[0]);
+
 	unsigned free_size = INGOING_BUFFER_INITIAL_SIZE - 2 * sizeof(unsigned);
-	LPS[lp]->in_buffer.base = pool_get_memory(LPS[lp]->lid, INGOING_BUFFER_INITIAL_SIZE);
+	LPS[lp]->in_buffer.base[0] = pool_get_memory(LPS[lp]->lid, INGOING_BUFFER_INITIAL_SIZE);
 	//offset 0
 	LPS[lp]->in_buffer.first_free = 0;
 	//primo header, ricorda che le dimensioni sono già al netto di header e footer
@@ -279,8 +296,15 @@ void initialize_LP(unsigned int lp) {
 	*FOOTER_ADDRESS_OF(LPS[lp]->in_buffer.first_free,free_size,lp) = free_size;
 	*PREV_FREE_BLOCK_ADDRESS(LPS[lp]->in_buffer.first_free,lp) = IN_USE_FLAG;
 	*NEXT_FREE_BLOCK_ADDRESS(LPS[lp]->in_buffer.first_free,lp) = IN_USE_FLAG;
-	LPS[lp]->in_buffer.size = INGOING_BUFFER_INITIAL_SIZE;
-	spin_unlock(&LPS[lp]->in_buffer.lock);
+	LPS[lp]->in_buffer.size[0] = INGOING_BUFFER_INITIAL_SIZE;
+	spin_unlock(&LPS[lp]->in_buffer.lock[0]);
+	
+	//Initialize reserve buffer
+	spin_lock(&LPS[lp]->in_buffer.lock[1]);
+
+	LPS[lp]->in_buffer.base[1] = pool_get_memory(LPS[lp]->lid, INGOING_BUFFER_INITIAL_SIZE*INGOING_BUFFER_GROW_FACTOR);
+	LPS[lp]->in_buffer.size[1] = INGOING_BUFFER_INITIAL_SIZE*INGOING_BUFFER_GROW_FACTOR;
+	spin_unlock(&LPS[lp]->in_buffer.lock[1]);
 	
 	LPS[lp]->outgoing_buffer.min_in_transit = rsalloc(sizeof(simtime_t) * n_cores);
 	for(i = 0; i < n_cores; i++) {
@@ -331,10 +355,10 @@ void initialize_worker_thread(void) {
 
 		// Copy the relevant string pointers to the INIT event payload
 		if(model_parameters.size > 0) {
-			spin_lock(&LPS[init_event.receiver]->in_buffer.lock);
+			spin_lock(&LPS[init_event.receiver]->in_buffer.lock[0]);
 			init_event.payload_offset = alloca_memoria_ingoing_buffer(init_event.receiver, model_parameters.size * sizeof(char *));
-			memcpy((LPS[init_event.receiver]->in_buffer.base) + init_event.payload_offset,  model_parameters.arguments, model_parameters.size * sizeof(char *));
-			spin_unlock(&LPS[init_event.receiver]->in_buffer.lock);
+			memcpy(LPS[init_event.receiver]->in_buffer.base[0] + init_event.payload_offset,  model_parameters.arguments, model_parameters.size * sizeof(char *));
+			spin_unlock(&LPS[init_event.receiver]->in_buffer.lock[0]);
 		}
 
 		(void)list_insert_head(LPS_bound[t]->lid, LPS_bound[t]->queue_in, &init_event);

@@ -69,13 +69,13 @@ void fossil_collection(unsigned int lid, simtime_t time_barrier) {
 	actual = list_prev(last_kept_event);
 	
 	//libero la memoria usata per il payload
-	spin_lock(&LPS[lid]->in_buffer.lock);
+	spin_lock(&LPS[lid]->in_buffer.lock[0]);
 	while(actual!=NULL){
 		if(actual->size>0)
 			dealloca_memoria_ingoing_buffer(actual->receiver, actual->payload_offset);
 		actual = list_prev(actual);
 	}
-	spin_unlock(&LPS[lid]->in_buffer.lock);
+	spin_unlock(&LPS[lid]->in_buffer.lock[0]);
 
 
 	// Truncate the input queue, accounting for the event which is pointed by the lastly kept state

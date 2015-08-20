@@ -221,9 +221,9 @@ void process_bottom_halves(void) {
 						}
 						
 						if(matched_msg->size > 0){
-							spin_lock(&LPS[matched_msg->receiver]->in_buffer.lock);
+							spin_lock(&LPS[matched_msg->receiver]->in_buffer.lock[0]);
 							dealloca_memoria_ingoing_buffer(matched_msg->receiver, matched_msg->payload_offset);
-							spin_unlock(&LPS[matched_msg->receiver]->in_buffer.lock);
+							spin_unlock(&LPS[matched_msg->receiver]->in_buffer.lock[0]);
 						}
 
 						// Delete the matched message

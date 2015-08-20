@@ -137,10 +137,10 @@ void ParallelScheduleNewEvent(unsigned int gid_receiver, simtime_t timestamp, un
 	}
 
 	if (event_content != NULL && event_size>0) {
-		spin_lock(&LPS[event.receiver]->in_buffer.lock);
+		spin_lock(&LPS[event.receiver]->in_buffer.lock[0]);
 		event.payload_offset = alloca_memoria_ingoing_buffer(event.receiver, event_size);
-		memcpy(LPS[event.receiver]->in_buffer.base + event.payload_offset, event_content, event_size);
-		spin_unlock(&LPS[event.receiver]->in_buffer.lock);
+		memcpy(LPS[event.receiver]->in_buffer.base[0] + event.payload_offset, event_content, event_size);
+		spin_unlock(&LPS[event.receiver]->in_buffer.lock[0]);
 
 	}
 
@@ -375,10 +375,11 @@ void send_outgoing_msgs(unsigned int lid) {
 
 //@return il primo offset del nuovo blocco (che corrisponde alla size precedente). 
 unsigned richiedi_altra_memoria(unsigned lid){
-	unsigned ret = LPS[lid]->in_buffer.size;
-	unsigned new_size = LPS[lid]->in_buffer.size * INGOING_BUFFER_GROW_FACTOR;
-	LPS[lid]->in_buffer.base = pool_realloc_memory(lid, new_size, LPS[lid]->in_buffer.base);
-	LPS[lid]->in_buffer.size = new_size;
+	unsigned ret = LPS[lid]->in_buffer.size[0];
+	//quando questa viene chiamta quella maggiore è gia andata al posto 0!!
+	unsigned new_size = LPS[lid]->in_buffer.size[0] * INGOING_BUFFER_GROW_FACTOR;
+	LPS[lid]->in_buffer.base[1] = pool_realloc_memory(lid, LPS[lid]->in_buffer.size[0], new_size, LPS[lid]->in_buffer.base[1]);
+	LPS[lid]->in_buffer.size[1] = new_size;
 	return ret;
 }
 
@@ -396,18 +397,12 @@ unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size){
 	//devo allocare almeno una cosa di dimensione sizeof(PREV_FREE) + sizeof(succ_free)
 	if(size<2*sizeof(unsigned))
 		size = 2*sizeof(unsigned);
-	
+start:
 	//se FIRST_FREE è pari a IN_USE_FLAG significa che non c'è spazio libero!!
-	if(LPS[lid]->in_buffer.first_free == IN_USE_FLAG || IS_IN_USE(HEADER_OF(LPS[lid]->in_buffer.first_free,lid)) ){
-		new_off = richiedi_altra_memoria(lid);
-		new_size = new_off - 2*sizeof(unsigned); //al netto di h e f
-		//devo dare al nuovo blocco l'header e il footer
-		*HEADER_ADDRESS_OF(new_off,lid) = new_size;
-		*FOOTER_ADDRESS_OF(new_off,new_size,lid) = new_size;	
-		LPS[lid]->in_buffer.first_free = new_off;
-		//non c'era nessun blocco libero... quindi il nuovo blocco libero non ha ne un successivo libero ne un prev
-		*PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = IN_USE_FLAG;
-		*NEXT_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = IN_USE_FLAG;
+	if(LPS[lid]->in_buffer.first_free == IN_USE_FLAG || IS_IN_USE(HEADER_OF(LPS[lid]->in_buffer.first_free,lid)) ){	
+		puts("qua");
+		buffer_switch(lid);
+		goto start;
 	}
 	
 	actual = LPS[lid]->in_buffer.first_free;
@@ -417,7 +412,6 @@ unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size){
 		//in questo caso prendo da split il valore di ritorno che il nuovo ff. Split si preoccupa di riorganizzare
 		//la free list
 		LPS[lid]->in_buffer.first_free = split(actual, size, lid);
-			
 		//deve ritornare l'offset per il payload!
 		return actual+sizeof(unsigned);
 	}
@@ -427,18 +421,9 @@ unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size){
 		succ = NEXT_FREE_BLOCK(actual,lid);
 		//Se il successivo non è un blocco utilizzabile, non ci sarà nessun blocco utilizzabile!
 		if(succ==IN_USE_FLAG || IS_IN_USE(HEADER_OF(succ,lid))){
-			new_off = richiedi_altra_memoria(lid);
-			new_size = new_off - 2*sizeof(unsigned); //al netto di h e f
-			//devo dare al nuovo blocco l'header e il footer
-			*HEADER_ADDRESS_OF(new_off,lid) = new_size;
-			*FOOTER_ADDRESS_OF(new_off,new_size,lid) = new_size;
-			//nel nuovo blocco pongo il prev free = actual
-			*PREV_FREE_BLOCK_ADDRESS(new_off,lid) = actual;
-			//e il next_free IN_USE
-			*NEXT_FREE_BLOCK_ADDRESS(new_off,lid) = IN_USE_FLAG;
-			//devo dire ad actual chi è il nuovo libero succesivo
-			*NEXT_FREE_BLOCK_ADDRESS(actual,lid) = new_off;
-			continue;
+			puts("qua");
+			buffer_switch(lid);
+			goto start;
 		}
 		
 		//altrimenti..(ossia se il successivo è utilizzabile)
@@ -451,6 +436,26 @@ unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size){
 		else
 			actual = succ;
 	}	
+}
+
+void buffer_switch(unsigned lid){
+	//cambio buffer
+	spin_lock(&LPS[lid]->in_buffer.lock[1]);
+	//faccio la copia
+	memcpy(LPS[lid]->in_buffer.base[1], LPS[lid]->in_buffer.base[0], LPS[lid]->in_buffer.size[0]);
+	unsigned size_temp = LPS[lid]->in_buffer.size[0];
+	LPS[lid]->in_buffer.size[0] = LPS[lid]->in_buffer.size[1];
+	LPS[lid]->in_buffer.size[1] = size_temp;
+	void* temp = LPS[lid]->in_buffer.base[1];
+	LPS[lid]->in_buffer.base[1] = LPS[lid]->in_buffer.base[0];
+	LPS[lid]->in_buffer.base[0] = temp;
+	//metto header e footer al nuovo blocco (che sarà ff.. politica LIFO), il new off è la vecchia size
+	//che ora si trova in size[1]
+	*PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.size[1],lid) = IN_USE_FLAG;
+	*NEXT_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.size[1],lid) = LPS[lid]->in_buffer.first_free;
+	*PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = LPS[lid]->in_buffer.size[1];
+	LPS[lid]->in_buffer.first_free = LPS[lid]->in_buffer.size[1];		
+	spin_unlock(&LPS[lid]->in_buffer.lock[1]);
 }
 
 //L'OPERAZIONE DI SPLIT E' UN'OPERAZIONE CHE DIVIDE UN BLOCCO DI MEMORIA E CAMBIA GLI HEADER AD ENTRAMBI
@@ -512,7 +517,7 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 	else{
 		adegua_al_successivo:
 		ret = NEXT_FREE_BLOCK(addr,lid);
-		if(ret==IN_USE_FLAG || (ret>=LPS[lid]->in_buffer.size) || IS_IN_USE(HEADER_OF(ret,lid)))
+		if(ret==IN_USE_FLAG || (ret>=LPS[lid]->in_buffer.size[0]) || IS_IN_USE(HEADER_OF(ret,lid)))
 			ret = IN_USE_FLAG;
 		//devo cambiare il prev_free a ret e dire al prev di addr che il suo succ è ora ret
 		//devo inoltre dire a ret che il suo precedente è quello di addr (se addr ha un precedente libero)
@@ -545,7 +550,7 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 	unsigned prev_footer_offset = header_offset - sizeof(unsigned); //può essere < 0
 	unsigned prev_footer;
 	if((int)(prev_footer_offset)>=0){
-		prev_footer = *(unsigned*) (LPS[lid]->in_buffer.base + prev_footer_offset);	
+		prev_footer = *(unsigned*) (LPS[lid]->in_buffer.base[0] + prev_footer_offset);	
 	}
 	else{
 		prev_footer_offset = IN_USE_FLAG;
@@ -555,8 +560,8 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 	unsigned succ_header_offset = footer_offset + sizeof(unsigned); //può uscire dai bordi
 	unsigned succ_footer_offset;
 	unsigned succ_header;
-	if(succ_header_offset<LPS[lid]->in_buffer.size){
-		succ_header = *(unsigned*)(LPS[lid]->in_buffer.base + succ_header_offset);
+	if(succ_header_offset<LPS[lid]->in_buffer.size[0]){
+		succ_header = *(unsigned*)(LPS[lid]->in_buffer.base[0] + succ_header_offset);
 	}
 	else{
 		succ_header = IN_USE_FLAG;

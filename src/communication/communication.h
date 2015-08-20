@@ -79,9 +79,9 @@ enum _control_msgs {
 
 
 
-//#define INGOING_BUFFER_INITIAL_SIZE (1<<20) //1MB
+#define INGOING_BUFFER_INITIAL_SIZE ((unsigned)(1<<20)) //1MB
 
-#define INGOING_BUFFER_INITIAL_SIZE ((1<<20)	/ (1024)) // TEST REALLOC
+//#define INGOING_BUFFER_INITIAL_SIZE ((unsigned) ((1<<20)	/ (1024))) // TEST REALLOC
 
 
 #define INGOING_BUFFER_GROW_FACTOR (2)
@@ -99,39 +99,39 @@ enum _control_msgs {
 
 
 //QUESTO "RESTITUISCE" UN UNSIGNED (L'HEADER APPUNTO)
-#define HEADER_OF(OFFSET,LID) (*((unsigned*) (((LPS[LID]->in_buffer.base)+(OFFSET)) )))
+#define HEADER_OF(OFFSET,LID) (*((unsigned*) (((LPS[LID]->in_buffer.base[0])+(OFFSET)) )))
 
 //RESTITUISCE L'INDIRIZZO DELL'HEADER
-#define HEADER_ADDRESS_OF(OFFSET,LID) ((unsigned*) (((LPS[LID]->in_buffer.base)+(OFFSET)) ))
+#define HEADER_ADDRESS_OF(OFFSET,LID) ((unsigned*) (((LPS[LID]->in_buffer.base[0])+(OFFSET)) ))
 
 //RESTITUISCE L'INDIRIZZO DEL FOOTER
-#define FOOTER_ADDRESS_OF(OFFSET,SIZE,LID) ((unsigned*) (( (LPS[LID]->in_buffer.base) + (OFFSET) + (sizeof(unsigned)) + (SIZE) ) ))
+#define FOOTER_ADDRESS_OF(OFFSET,SIZE,LID) ((unsigned*) (( (LPS[LID]->in_buffer.base[0]) + (OFFSET) + (sizeof(unsigned)) + (SIZE) ) ))
 
 //QUESTO "RESTITUISCE" un indirizzo
-#define PAYLOAD_OF(OFFSET,LID) ((LPS[LID]->in_buffer.base)+(OFFSET)+(sizeof(unsigned)))
+#define PAYLOAD_OF(OFFSET,LID) ((LPS[LID]->in_buffer.base[0])+(OFFSET)+(sizeof(unsigned)))
 
 //RICORDATI CHE LA DIMENSIONE È NELL'HEADER E CHE È GIA AL NETTO DI HEADER E FOOTER
-#define FREE_SIZE(OFFSET,LID) (*((unsigned*) ((OFFSET) + (LPS[LID]->in_buffer.base) )))
+#define FREE_SIZE(OFFSET,LID) (*((unsigned*) ((OFFSET) + (LPS[LID]->in_buffer.base[0]) )))
 
 //occhio che questo "ritorna" l'offset del successivo al blocco che ha header in offset non l'indirizzo
-#define NEXT_FREE_BLOCK(OFFSET,LID) (*((unsigned*)((LPS[LID]->in_buffer.base) + (OFFSET) + (2*sizeof(unsigned)))))
+#define NEXT_FREE_BLOCK(OFFSET,LID) (*((unsigned*)((LPS[LID]->in_buffer.base[0]) + (OFFSET) + (2*sizeof(unsigned)))))
 
 //INDIRIZO IN CUI È SCRITTO IL NEXT_FREE
-#define NEXT_FREE_BLOCK_ADDRESS(OFFSET,LID) ((unsigned*)((LPS[LID]->in_buffer.base) + (OFFSET) + (2*sizeof(unsigned))))
+#define NEXT_FREE_BLOCK_ADDRESS(OFFSET,LID) ((unsigned*)((LPS[LID]->in_buffer.base[0]) + (OFFSET) + (2*sizeof(unsigned))))
 
 //occhio che questo "ritorna" l'offset del precedente al blocco che ha header in offset non l'indirizzo
-#define PREV_FREE_BLOCK(OFFSET,LID) (*((unsigned*)((LPS[LID]->in_buffer.base) + (OFFSET) + (sizeof(unsigned)))))
+#define PREV_FREE_BLOCK(OFFSET,LID) (*((unsigned*)((LPS[LID]->in_buffer.base[0]) + (OFFSET) + (sizeof(unsigned)))))
 
 //INDIRIZO IN CUI È SCRITTO IL PREV_FREE
-#define PREV_FREE_BLOCK_ADDRESS(OFFSET,LID) ((unsigned*)(((LPS[LID]->in_buffer.base) + (OFFSET) + (sizeof(unsigned)))))
+#define PREV_FREE_BLOCK_ADDRESS(OFFSET,LID) ((unsigned*)(((LPS[LID]->in_buffer.base[0]) + (OFFSET) + (sizeof(unsigned)))))
 
 //L'INDICAZIONE SE È OCCUPATO O MENO È NELL'HEADER E NEL FOOTER
 typedef struct _ingoing_buffer{
-	void*	 base;
+	void*	 base[2];
 	//first_free sarà offset in quanto può essere tutto spostato con realloc
 	unsigned first_free;
-	unsigned size;
-	spinlock_t lock;
+	unsigned size[2];
+	spinlock_t lock[2];
 }ingoing_buffer;
 
 
@@ -168,6 +168,7 @@ unsigned richiedi_altra_memoria(unsigned lid);
 unsigned split(unsigned addr, unsigned size, unsigned lid);
 void coalesce(unsigned,unsigned,unsigned,unsigned);
 void delete_from_free_list(unsigned, unsigned);
+void buffer_switch(unsigned lid);
 
 /* Functions invoked by other modules */
 extern void communication_init(void);
