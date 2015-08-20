@@ -4,7 +4,9 @@
 void ProcessEvent(unsigned int me, simtime_t now, unsigned int event, event_t *content, unsigned int size, lp_state_t *state) {
 	event_t new_event;
 	simtime_t timestamp;
+//	printf("sizeof(event) is %u\n", sizeof(new_event));
 
+//	printf("event_type is %u\n", event);
 	switch(event) {
 
 		case INIT: // must be ALWAYS implemented

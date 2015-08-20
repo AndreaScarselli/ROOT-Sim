@@ -438,6 +438,7 @@ start:
 
 void buffer_switch(unsigned lid){
 	//cambio buffer
+	int i = 0;
 	spin_lock(&LPS[lid]->in_buffer.lock[1]);
 	//faccio la copia
 	memcpy(LPS[lid]->in_buffer.base[1], LPS[lid]->in_buffer.base[0], LPS[lid]->in_buffer.size[0]);
@@ -456,8 +457,10 @@ void buffer_switch(unsigned lid){
 	
 	//metto prev e next al nuovo blocco (che sarà ff.. politica LIFO), il new off è la vecchia size
 	*PREV_FREE_BLOCK_ADDRESS(new_off,lid) = IN_USE_FLAG;
+	//va bene anche nel caso in cui FF Sia IN_USE_FLAG, significherà il nostro nuovo new non ha un next
 	*NEXT_FREE_BLOCK_ADDRESS(new_off,lid) = LPS[lid]->in_buffer.first_free;
-	*PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = new_off;
+	if(LPS[lid]->in_buffer.first_free!=IN_USE_FLAG && !IS_IN_USE(HEADER_OF(LPS[lid]->in_buffer.first_free,lid)))
+		*PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = new_off;
 	LPS[lid]->in_buffer.first_free = new_off;		
 	spin_unlock(&LPS[lid]->in_buffer.lock[1]);
 }
