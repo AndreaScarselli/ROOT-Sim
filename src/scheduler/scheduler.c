@@ -331,10 +331,10 @@ void initialize_worker_thread(void) {
 
 		// Copy the relevant string pointers to the INIT event payload
 		if(model_parameters.size > 0) {
-			spin_lock(&(LPS[init_event.receiver]->in_buffer.lock));
+			spin_lock(&LPS[init_event.receiver]->in_buffer.lock);
 			init_event.payload_offset = alloca_memoria_ingoing_buffer(init_event.receiver, model_parameters.size * sizeof(char *));
 			memcpy((LPS[init_event.receiver]->in_buffer.base) + init_event.payload_offset,  model_parameters.arguments, model_parameters.size * sizeof(char *));
-			spin_unlock(&(LPS[init_event.receiver]->in_buffer.lock));
+			spin_unlock(&LPS[init_event.receiver]->in_buffer.lock);
 		}
 
 		(void)list_insert_head(LPS_bound[t]->lid, LPS_bound[t]->queue_in, &init_event);

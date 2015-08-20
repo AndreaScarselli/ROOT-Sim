@@ -444,7 +444,7 @@ unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size){
 		//altrimenti..(ossia se il successivo è utilizzabile)
 		//se il successivo ce la fa
 		if(FREE_SIZE(succ,lid)>=size){
-			split(succ, size, lid);
+			(void)split(succ, size, lid);
 			return succ+sizeof(unsigned);
 		}
 		//se il successivo non ce la fa
