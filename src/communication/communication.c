@@ -400,7 +400,6 @@ unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size){
 start:
 	//se FIRST_FREE è pari a IN_USE_FLAG significa che non c'è spazio libero!!
 	if(LPS[lid]->in_buffer.first_free == IN_USE_FLAG || IS_IN_USE(HEADER_OF(LPS[lid]->in_buffer.first_free,lid)) ){	
-		puts("qua");
 		buffer_switch(lid);
 		goto start;
 	}
@@ -421,7 +420,6 @@ start:
 		succ = NEXT_FREE_BLOCK(actual,lid);
 		//Se il successivo non è un blocco utilizzabile, non ci sarà nessun blocco utilizzabile!
 		if(succ==IN_USE_FLAG || IS_IN_USE(HEADER_OF(succ,lid))){
-			puts("qua");
 			buffer_switch(lid);
 			goto start;
 		}
@@ -444,17 +442,23 @@ void buffer_switch(unsigned lid){
 	//faccio la copia
 	memcpy(LPS[lid]->in_buffer.base[1], LPS[lid]->in_buffer.base[0], LPS[lid]->in_buffer.size[0]);
 	unsigned size_temp = LPS[lid]->in_buffer.size[0];
+	unsigned new_off = LPS[lid]->in_buffer.size[0];
+	unsigned new_size = new_off - 2*sizeof(unsigned);
 	LPS[lid]->in_buffer.size[0] = LPS[lid]->in_buffer.size[1];
 	LPS[lid]->in_buffer.size[1] = size_temp;
 	void* temp = LPS[lid]->in_buffer.base[1];
 	LPS[lid]->in_buffer.base[1] = LPS[lid]->in_buffer.base[0];
 	LPS[lid]->in_buffer.base[0] = temp;
-	//metto header e footer al nuovo blocco (che sarà ff.. politica LIFO), il new off è la vecchia size
+	//metto header e footer al nuovo blocco 
 	//che ora si trova in size[1]
-	*PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.size[1],lid) = IN_USE_FLAG;
-	*NEXT_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.size[1],lid) = LPS[lid]->in_buffer.first_free;
-	*PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = LPS[lid]->in_buffer.size[1];
-	LPS[lid]->in_buffer.first_free = LPS[lid]->in_buffer.size[1];		
+	*HEADER_ADDRESS_OF(new_off,lid)=new_size;
+	*FOOTER_ADDRESS_OF(new_off,new_size,lid)=new_size;
+	
+	//metto prev e next al nuovo blocco (che sarà ff.. politica LIFO), il new off è la vecchia size
+	*PREV_FREE_BLOCK_ADDRESS(new_off,lid) = IN_USE_FLAG;
+	*NEXT_FREE_BLOCK_ADDRESS(new_off,lid) = LPS[lid]->in_buffer.first_free;
+	*PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = new_off;
+	LPS[lid]->in_buffer.first_free = new_off;		
 	spin_unlock(&LPS[lid]->in_buffer.lock[1]);
 }
 
