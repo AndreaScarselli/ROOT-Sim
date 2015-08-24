@@ -54,25 +54,6 @@ void (* ScheduleNewEvent)(unsigned int gid_receiver, simtime_t timestamp, unsign
 */
 void communication_init(void) {
 //	windows_init()
-/*
- * 
-	unsigned free_size = INGOING_BUFFER_INITIAL_SIZE - 2 * sizeof(unsigned);
-	int i;
-	for(i=0;i<n_prc;i++){
-		LPS[i]->in_buffer.base = pool_get_memory(LPS[i]->lid, INGOING_BUFFER_INITIAL_SIZE);
-		//offset 0
-		LPS[i]->in_buffer.first_free = 0;
-		//primo header, ricorda che le dimensioni sono già al netto di header e footer
-		memcpy(LPS[i]->in_buffer.base, &free_size, sizeof(unsigned));
-		//primo footer
-		memcpy(LPS[i]->in_buffer.base + INGOING_BUFFER_INITIAL_SIZE - sizeof(unsigned), &free_size, sizeof(unsigned));
-		*(unsigned*) PREV_FREE_BLOCK_ADDRESS(LPS[i]->in_buffer.first_free,i) = IN_USE_FLAG;
-		*(unsigned*) NEXT_FREE_BLOCK_ADDRESS(LPS[i]->in_buffer.first_free,i) = IN_USE_FLAG;
-		LPS[i]->in_buffer.size = INGOING_BUFFER_INITIAL_SIZE;
-		LPS[i]->in_buffer.in_use = 0;
-	}
-	* 
-	*/
 }
 
 
@@ -402,7 +383,7 @@ unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size){
 		size = 2*sizeof(unsigned);
 start:
 	//se FIRST_FREE è pari a IN_USE_FLAG significa che non c'è spazio libero!!
-	if(LPS[lid]->in_buffer.first_free == IN_USE_FLAG || IS_IN_USE(HEADER_OF(LPS[lid]->in_buffer.first_free,lid)) ){	
+	if(IS_NOT_AVAILABLE(LPS[lid]->in_buffer.first_free,lid)){	
 		ret = buffer_switch(lid);
 		if(ret==NO_MEM)
 			return NO_MEM;
@@ -424,7 +405,7 @@ start:
 	while(true){
 		succ = NEXT_FREE_BLOCK(actual,lid);
 		//Se il successivo non è un blocco utilizzabile, non ci sarà nessun blocco utilizzabile!
-		if(succ==IN_USE_FLAG || IS_IN_USE(HEADER_OF(succ,lid))){
+		if(IS_NOT_AVAILABLE(succ,lid)){
 			ret = buffer_switch(lid);
 			if(ret==NO_MEM)
 				return NO_MEM;
@@ -446,6 +427,7 @@ start:
 int buffer_switch(unsigned lid){
 	if(LPS[lid]->in_buffer.size[1] < LPS[lid]->in_buffer.size[0])
 		return NO_MEM;
+//	printf("lid %u is going to switch buffer\n", lid);
 	//cambio buffer
 	spin_lock(&LPS[lid]->in_buffer.lock[1]);
 	//faccio la copia
@@ -467,7 +449,7 @@ int buffer_switch(unsigned lid){
 	*PREV_FREE_BLOCK_ADDRESS(new_off,lid) = IN_USE_FLAG;
 	//va bene anche nel caso in cui FF Sia IN_USE_FLAG, significherà il nostro nuovo new non ha un next
 	*NEXT_FREE_BLOCK_ADDRESS(new_off,lid) = LPS[lid]->in_buffer.first_free;
-	if(LPS[lid]->in_buffer.first_free!=IN_USE_FLAG && !IS_IN_USE(HEADER_OF(LPS[lid]->in_buffer.first_free,lid)))
+	if(IS_AVAILABLE(LPS[lid]->in_buffer.first_free,lid))
 		*PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = new_off;
 	LPS[lid]->in_buffer.first_free = new_off;		
 	spin_unlock(&LPS[lid]->in_buffer.lock[1]);
@@ -518,10 +500,10 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 			memcpy(NEXT_FREE_BLOCK_ADDRESS(splitted,lid), NEXT_FREE_BLOCK_ADDRESS(addr,lid), sizeof(unsigned));
 			memcpy(PREV_FREE_BLOCK_ADDRESS(splitted,lid), PREV_FREE_BLOCK_ADDRESS(addr,lid), sizeof(unsigned));
 			//DICO AL SUCCESSIVO CHE IL PREV SI E' spostato in avanti(se il successivo non è un uso)
-			if(NEXT_FREE_BLOCK(splitted,lid)!=IN_USE_FLAG && !IS_IN_USE(HEADER_OF(NEXT_FREE_BLOCK(splitted,lid),lid)))
+			if(IS_AVAILABLE(NEXT_FREE_BLOCK(splitted,lid),lid))
 				memcpy(PREV_FREE_BLOCK_ADDRESS(NEXT_FREE_BLOCK(splitted,lid),lid), &splitted, sizeof(unsigned));
 			//DICO AL PREV CHE IL NEXT SI È SPOSTATO (SEMPRE SOLO SE IL PREV NON È IN USO)
-			if(PREV_FREE_BLOCK(splitted,lid)!= IN_USE_FLAG && !IS_IN_USE(HEADER_OF(PREV_FREE_BLOCK(splitted,lid),lid))){
+			if(IS_AVAILABLE(PREV_FREE_BLOCK(splitted,lid),lid)){
 				memcpy(NEXT_FREE_BLOCK_ADDRESS(PREV_FREE_BLOCK(splitted,lid),lid), &splitted, sizeof(unsigned));
 				
 			}
@@ -537,7 +519,7 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 			ret = IN_USE_FLAG;
 		//devo cambiare il prev_free a ret e dire al prev di addr che il suo succ è ora ret
 		//devo inoltre dire a ret che il suo precedente è quello di addr (se addr ha un precedente libero)
-		if(PREV_FREE_BLOCK(addr,lid)!= IN_USE_FLAG && !IS_IN_USE(HEADER_OF(PREV_FREE_BLOCK(addr,lid),lid))){
+		if(IS_AVAILABLE(PREV_FREE_BLOCK(addr,lid),lid)){
 			if(ret!=IN_USE_FLAG)
 				memcpy(PREV_FREE_BLOCK_ADDRESS(ret,lid),PREV_FREE_BLOCK_ADDRESS(addr,lid),sizeof(unsigned));
 			//va bene anche per ret=IN_USE.. in questo caso gli diciamo che non ha più un successivo
@@ -630,12 +612,12 @@ void delete_from_free_list(unsigned to_delete, unsigned lid){
 	
 	//io voglio dire al precedente che il next è cambiato.. devo quindi controllare che il precedente
 	//sia davvero un blocco libero e non un fake pointer
-	if(PREV_FREE_BLOCK(to_delete,lid)!=IN_USE_FLAG && !IS_IN_USE(HEADER_OF(PREV_FREE_BLOCK(to_delete,lid),lid)))
+	if(IS_AVAILABLE(PREV_FREE_BLOCK(to_delete,lid),lid))
 		memcpy(NEXT_FREE_BLOCK_ADDRESS(PREV_FREE_BLOCK(to_delete,lid),lid), NEXT_FREE_BLOCK_ADDRESS(to_delete,lid),sizeof(unsigned));
 	
 	//io voglio dire al successivo che il precedente è cambiato.. devo quindi controllare che il successivo sia 
 	//davvero un blocco libero e non un fake pointer
-	if(NEXT_FREE_BLOCK(to_delete,lid)!=IN_USE_FLAG && !IS_IN_USE(HEADER_OF(NEXT_FREE_BLOCK(to_delete,lid),lid)))
+	if(IS_AVAILABLE(NEXT_FREE_BLOCK(to_delete,lid),lid))
 		memcpy(PREV_FREE_BLOCK_ADDRESS(NEXT_FREE_BLOCK(to_delete,lid),lid), PREV_FREE_BLOCK_ADDRESS(to_delete,lid),sizeof(unsigned));
 }
 
@@ -646,9 +628,9 @@ void coalesce(unsigned header, unsigned footer, unsigned size, unsigned lid){
 	*HEADER_ADDRESS_OF(header, lid) = size;
 	*FOOTER_ADDRESS_OF(header, size, lid) = size;
 	//questa situazione può crearsi anche da delete_from_free_list
-	if(LPS[lid]->in_buffer.first_free!=IN_USE_FLAG && !IS_IN_USE(HEADER_OF(LPS[lid]->in_buffer.first_free,lid)))
+	if(IS_AVAILABLE(LPS[lid]->in_buffer.first_free,lid))
 		memcpy(PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid), &header, sizeof(unsigned));
-	*(unsigned*)NEXT_FREE_BLOCK_ADDRESS(header,lid) = LPS[lid]->in_buffer.first_free;
-	*(unsigned*)PREV_FREE_BLOCK_ADDRESS(header,lid) = IN_USE_FLAG;
+	*NEXT_FREE_BLOCK_ADDRESS(header,lid) = LPS[lid]->in_buffer.first_free;
+	*PREV_FREE_BLOCK_ADDRESS(header,lid) = IN_USE_FLAG;
 	LPS[lid]->in_buffer.first_free = header;
 }

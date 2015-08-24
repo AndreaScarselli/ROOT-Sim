@@ -77,9 +77,9 @@ enum _control_msgs {
 
 #define MAX_OUTGOING_MSG	50
 
-#define INGOING_BUFFER_INITIAL_SIZE ((unsigned)(1<<20)) //1MB
+//#define INGOING_BUFFER_INITIAL_SIZE ((unsigned)(1<<20)) //1MB
 
-//#define INGOING_BUFFER_INITIAL_SIZE ((unsigned) ((1<<20)	/ (1024))) // TEST REALLOC
+#define INGOING_BUFFER_INITIAL_SIZE ((unsigned) ((1<<20)	/ (1024))) // TEST REALLOC
 
 #define NO_MEM 0
 #define MEM_ASSIGNED 1
@@ -124,6 +124,11 @@ enum _control_msgs {
 
 //INDIRIZO IN CUI È SCRITTO IL PREV_FREE
 #define PREV_FREE_BLOCK_ADDRESS(OFFSET,LID) ((unsigned*)(((LPS[LID]->in_buffer.base[0]) + (OFFSET) + (sizeof(unsigned)))))
+
+#define IS_NOT_AVAILABLE(OFFSET,LID) ( ((OFFSET) == (IN_USE_FLAG)) || (IS_IN_USE(HEADER_OF(OFFSET,LID))))	
+
+#define IS_AVAILABLE(OFFSET,LID) (!(IS_NOT_AVAILABLE(OFFSET,LID)))
+
 
 //L'INDICAZIONE SE È OCCUPATO O MENO È NELL'HEADER E NEL FOOTER
 typedef struct _ingoing_buffer{
