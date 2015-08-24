@@ -361,7 +361,8 @@ unsigned richiedi_altra_memoria(unsigned lid){
 	unsigned ret = LPS[lid]->in_buffer.size[0];
 	//quando questa viene chiamta quella maggiore è gia andata al posto 0!!
 	unsigned new_size = LPS[lid]->in_buffer.size[0] * INGOING_BUFFER_GROW_FACTOR;
-	LPS[lid]->in_buffer.base[1] = pool_realloc_memory(lid, LPS[lid]->in_buffer.size[0], new_size, LPS[lid]->in_buffer.base[1]);
+	pool_release_memory(lid, LPS[lid]->in_buffer.base[1]);
+	LPS[lid]->in_buffer.base[1] = pool_get_memory(lid, new_size);
 	LPS[lid]->in_buffer.size[1] = new_size;
 	return ret;
 }
