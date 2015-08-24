@@ -26,6 +26,8 @@
 *
 */
 
+#define MAX_EVENT_SIZE 128 //per SERIAL! DA ELIMINARE
+
 
 #pragma once
 #ifndef _PLATFORM_H_
@@ -142,9 +144,24 @@ typedef struct _msg_t {
 	unsigned long long	mark;	/// Unique identifier of the message, used for antimessages
 	unsigned long long	rendezvous_mark;	/// Unique identifier of the message, used for rendez-vous events
 	// Application informations
-	unsigned 				payload_offset; //offset nell'ingoing buffer... tipo "binding a tempo di esecuzione"
+	unsigned 			payload_offset; //offset nell'ingoing buffer... 
 	int 				size;
 } msg_t;
+
+typedef struct _serial_msg_t {
+	// Kernel's information
+	unsigned int   		sender;
+	unsigned int   		receiver;
+	int   			type;
+	simtime_t		timestamp;
+	simtime_t		send_time;
+	message_kind_t		message_kind;
+	unsigned long long	mark;	/// Unique identifier of the message, used for antimessages
+	unsigned long long	rendezvous_mark;	/// Unique identifier of the message, used for rendez-vous events
+	// Application informations
+	char event_content[MAX_EVENT_SIZE];
+	int size;
+} serial_msg_t;
 
 
 /// Message envelope definition. This is used to handle the output queue and stores information needed to generate antimessages
