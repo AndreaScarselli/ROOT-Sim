@@ -309,8 +309,8 @@ void pool_release_memory(unsigned int lid, void *ptr) {
 	for(i=0; i < maps[lid].size; i++){
 		if((((mdt_entry*)maps[lid].base )+i)->addr == ptr){
 				munmap(ptr, (( (mdt_entry*)maps[lid].base )+i)-> numpages * PAGE_SIZE);
-				
-				release_mdt_entry(lid, (((mdt_entry*)maps[lid].base )+i));
+				if(release_mdt_entry(lid, (((mdt_entry*)maps[lid].base )+i))==MDT_RELEASE_FAILURE)
+					rootsim_error(true, "MDT_RELEASE_FAILURE!\n");
 				break;
 		}
 	}
