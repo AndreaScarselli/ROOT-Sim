@@ -156,9 +156,6 @@ static void *main_simulation_loop(void *arg) {
 * @return Exit code
 */
 int main(int argc, char **argv) {
-	printf("partiamo con %d\n", INGOING_BUFFER_INITIAL_SIZE);
-
-
 	set_affinity(0);
 
 	SystemInit(argc, argv);
