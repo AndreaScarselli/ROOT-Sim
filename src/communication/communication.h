@@ -78,11 +78,14 @@ enum _control_msgs {
 #define MAX_OUTGOING_MSG	50
 
 
+#define INGOING_BUFFER_INITIAL_SIZE 1024
 
-#define INGOING_BUFFER_INITIAL_SIZE ((unsigned)(1<<20)) //1MB
+//#define INGOING_BUFFER_INITIAL_SIZE ((unsigned)(1<<20)) //1MB
 
 //#define INGOING_BUFFER_INITIAL_SIZE ((unsigned) ((1<<20)	/ (1024))) // TEST REALLOC
 
+#define NO_MEM 0
+#define MEM_ASSIGNED 1
 
 #define INGOING_BUFFER_GROW_FACTOR (2)
 
@@ -168,7 +171,7 @@ unsigned richiedi_altra_memoria(unsigned lid);
 unsigned split(unsigned addr, unsigned size, unsigned lid);
 void coalesce(unsigned,unsigned,unsigned,unsigned);
 void delete_from_free_list(unsigned, unsigned);
-void buffer_switch(unsigned lid);
+int buffer_switch(unsigned lid);
 
 /* Functions invoked by other modules */
 extern void communication_init(void);

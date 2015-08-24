@@ -138,7 +138,9 @@ void ParallelScheduleNewEvent(unsigned int gid_receiver, simtime_t timestamp, un
 
 	if (event_content != NULL && event_size>0) {
 		spin_lock(&LPS[event.receiver]->in_buffer.lock[0]);
-		event.payload_offset = alloca_memoria_ingoing_buffer(event.receiver, event_size);
+		do{
+			event.payload_offset = alloca_memoria_ingoing_buffer(event.receiver, event_size);
+		}while(event.payload_offset==NO_MEM);
 		memcpy(LPS[event.receiver]->in_buffer.base[0] + event.payload_offset, event_content, event_size);
 		spin_unlock(&LPS[event.receiver]->in_buffer.lock[0]);
 
@@ -393,6 +395,7 @@ unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size){
 	unsigned succ;
 	unsigned new_off;
 	unsigned new_size;
+	int ret;
 	
 	//devo allocare almeno una cosa di dimensione sizeof(PREV_FREE) + sizeof(succ_free)
 	if(size<2*sizeof(unsigned))
@@ -400,7 +403,9 @@ unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size){
 start:
 	//se FIRST_FREE è pari a IN_USE_FLAG significa che non c'è spazio libero!!
 	if(LPS[lid]->in_buffer.first_free == IN_USE_FLAG || IS_IN_USE(HEADER_OF(LPS[lid]->in_buffer.first_free,lid)) ){	
-		buffer_switch(lid);
+		ret = buffer_switch(lid);
+		if(ret==NO_MEM)
+			return NO_MEM;
 		goto start;
 	}
 	
@@ -420,7 +425,9 @@ start:
 		succ = NEXT_FREE_BLOCK(actual,lid);
 		//Se il successivo non è un blocco utilizzabile, non ci sarà nessun blocco utilizzabile!
 		if(succ==IN_USE_FLAG || IS_IN_USE(HEADER_OF(succ,lid))){
-			buffer_switch(lid);
+			ret = buffer_switch(lid);
+			if(ret==NO_MEM)
+				return NO_MEM;
 			goto start;
 		}
 		
@@ -436,9 +443,10 @@ start:
 	}	
 }
 
-void buffer_switch(unsigned lid){
+int buffer_switch(unsigned lid){
+	if(LPS[lid]->in_buffer.size[1] < LPS[lid]->in_buffer.size[0])
+		return NO_MEM;
 	//cambio buffer
-	int i = 0;
 	spin_lock(&LPS[lid]->in_buffer.lock[1]);
 	//faccio la copia
 	memcpy(LPS[lid]->in_buffer.base[1], LPS[lid]->in_buffer.base[0], LPS[lid]->in_buffer.size[0]);
@@ -463,6 +471,7 @@ void buffer_switch(unsigned lid){
 		*PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = new_off;
 	LPS[lid]->in_buffer.first_free = new_off;		
 	spin_unlock(&LPS[lid]->in_buffer.lock[1]);
+	return MEM_ASSIGNED;
 }
 
 //L'OPERAZIONE DI SPLIT E' UN'OPERAZIONE CHE DIVIDE UN BLOCCO DI MEMORIA E CAMBIA GLI HEADER AD ENTRAMBI

@@ -187,6 +187,7 @@ static void LP_main_loop(void *args) {
 		if(LPS[current_lp]->in_buffer.size[1]<LPS[current_lp]->in_buffer.size[0]){
 			//LPS[current_lp]->in_buffer.base[1] = pool_realloc_memory(current_lp, LPS[current_lp]->in_buffer.size[0] * INGOING_BUFFER_GROW_FACTOR, LPS[current_lp]->in_buffer.base[1]);
 			pool_release_memory(current_lp, LPS[current_lp]->in_buffer.base[1]);
+//			printf("new size will be %u\n", LPS[current_lp]->in_buffer.size[0] * INGOING_BUFFER_GROW_FACTOR);
 			LPS[current_lp]->in_buffer.base[1] = pool_get_memory(current_lp, LPS[current_lp]->in_buffer.size[0] * INGOING_BUFFER_GROW_FACTOR);
 			LPS[current_lp]->in_buffer.size[1] = LPS[current_lp]->in_buffer.size[0] * INGOING_BUFFER_GROW_FACTOR;
 		}
