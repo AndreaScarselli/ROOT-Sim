@@ -450,6 +450,7 @@ int buffer_switch(unsigned lid){
 	*PREV_FREE_BLOCK_ADDRESS(new_off,lid) = IN_USE_FLAG;
 	//va bene anche nel caso in cui FF Sia IN_USE_FLAG, significherà il nostro nuovo new non ha un next
 	*NEXT_FREE_BLOCK_ADDRESS(new_off,lid) = LPS[lid]->in_buffer.first_free;
+	//se esisteva un first_free gli dico che adesso ha un prev ed il prev è new_off
 	if(IS_AVAILABLE(LPS[lid]->in_buffer.first_free,lid))
 		*PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = new_off;
 	LPS[lid]->in_buffer.first_free = new_off;		
@@ -560,7 +561,7 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 	unsigned succ_footer_offset;
 	unsigned succ_header;
 	if(succ_header_offset<LPS[lid]->in_buffer.size[0]){
-		succ_header = *(unsigned*)(LPS[lid]->in_buffer.base[0] + succ_header_offset);
+		succ_header = HEADER_OF(succ_header_offset,lid);
 	}
 	else{
 		succ_header = IN_USE_FLAG;
