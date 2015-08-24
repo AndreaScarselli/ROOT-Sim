@@ -308,13 +308,14 @@ void pool_release_memory(unsigned int lid, void *ptr) {
 	
 	for(i=0; i < maps[lid].size; i++){
 		if((((mdt_entry*)maps[lid].base )+i)->addr == ptr){
-				munmap(ptr, ( ( (mdt_entry*)maps[lid].base )+i) -> numpages * PAGE_SIZE);
+				munmap(ptr, (( (mdt_entry*)maps[lid].base )+i)-> numpages * PAGE_SIZE);
 				
 				release_mdt_entry(lid, (((mdt_entry*)maps[lid].base )+i));
-				maps[lid].active -= 1;
+				break;
 		}
 	}
-	
+	if(i==maps[lid].size)
+		rootsim_error(true, "Trying to release an addr that not compare in an mdt!");
 	
 }
 
