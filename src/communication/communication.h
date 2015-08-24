@@ -77,10 +77,7 @@ enum _control_msgs {
 
 #define MAX_OUTGOING_MSG	50
 
-
-#define INGOING_BUFFER_INITIAL_SIZE 1024
-
-//#define INGOING_BUFFER_INITIAL_SIZE ((unsigned)(1<<20)) //1MB
+#define INGOING_BUFFER_INITIAL_SIZE ((unsigned)(1<<20)) //1MB
 
 //#define INGOING_BUFFER_INITIAL_SIZE ((unsigned) ((1<<20)	/ (1024))) // TEST REALLOC
 
