@@ -357,6 +357,7 @@ void send_outgoing_msgs(unsigned int lid) {
 }
 
 //@return il primo offset del nuovo blocco (che corrisponde alla size precedente). 
+/*
 unsigned richiedi_altra_memoria(unsigned lid){
 	unsigned ret = LPS[lid]->in_buffer.size[0];
 	//quando questa viene chiamta quella maggiore è gia andata al posto 0!!
@@ -365,7 +366,7 @@ unsigned richiedi_altra_memoria(unsigned lid){
 	LPS[lid]->in_buffer.base[1] = pool_get_memory(lid, new_size);
 	LPS[lid]->in_buffer.size[1] = new_size;
 	return ret;
-}
+}*/
 
 //********************************************************************************************
 //*RICORDATI CHE QUESTO DEVE RESTITUIRE L'OFFSET PER IL PAYLOAD! E NON L'OFFSET DEL MESSAGGIO*
