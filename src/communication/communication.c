@@ -368,10 +368,8 @@ unsigned richiedi_altra_memoria(unsigned lid){
 	return ret;
 }*/
 
-//********************************************************************************************
-//*RICORDATI CHE QUESTO DEVE RESTITUIRE L'OFFSET PER IL PAYLOAD! E NON L'OFFSET DEL MESSAGGIO*
-//********************************************************************************************
-//il chiamante si deve preoccupare di fare lo spinlock
+//@param size dimensione richiesta PER IL MESSAGGIO (e non per il blocco!)
+//@return l'offset per il PAYLOAD! (e quindi spiazzato della dimensione dell'header rispetto al blocco)
 unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size){
 			
 	unsigned actual;
@@ -384,7 +382,6 @@ unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size){
 	if(size<2*sizeof(unsigned))
 		size = 2*sizeof(unsigned);
 start:
-	//se FIRST_FREE è pari a IN_USE_FLAG significa che non c'è spazio libero!!
 	if(IS_NOT_AVAILABLE(LPS[lid]->in_buffer.first_free,lid)){	
 		ret = buffer_switch(lid);
 		if(ret==NO_MEM)
@@ -394,33 +391,24 @@ start:
 	
 	actual = LPS[lid]->in_buffer.first_free;
 	
-	//ff sicuramente non è in uso, se lo fosse stato, avrei fatto la riallocazione alla precedente chiamata
 	if(HEADER_OF(actual,lid)>=size){
-		//in questo caso prendo da split il valore di ritorno che il nuovo ff. Split si preoccupa di riorganizzare
-		//la free list
+		//in questo caso prendo da split il valore di ritorno che il nuovo ff.
 		LPS[lid]->in_buffer.first_free = split(actual, size, lid);
-		//deve ritornare l'offset per il payload!
 		return actual+sizeof(unsigned);
 	}
 	
-	//a questo punto so già che actual sicuramente è un blocco libero
 	while(true){
 		succ = NEXT_FREE_BLOCK(actual,lid);
-		//Se il successivo non è un blocco utilizzabile, non ci sarà nessun blocco utilizzabile!
 		if(IS_NOT_AVAILABLE(succ,lid)){
 			ret = buffer_switch(lid);
 			if(ret==NO_MEM)
 				return NO_MEM;
 			goto start;
 		}
-		
-		//altrimenti..(ossia se il successivo è utilizzabile)
-		//se il successivo ce la fa
 		if(FREE_SIZE(succ,lid)>=size){
 			(void)split(succ, size, lid);
 			return succ+sizeof(unsigned);
 		}
-		//se il successivo non ce la fa
 		else
 			actual = succ;
 	}	
@@ -429,10 +417,8 @@ start:
 int buffer_switch(unsigned lid){
 	if(LPS[lid]->in_buffer.size[1] < LPS[lid]->in_buffer.size[0])
 		return NO_MEM;
-//	printf("lid %u is going to switch buffer\n", lid);
-	//cambio buffer
 	spin_lock(&LPS[lid]->in_buffer.lock[1]);
-	//faccio la copia
+
 	memcpy(LPS[lid]->in_buffer.base[1], LPS[lid]->in_buffer.base[0], LPS[lid]->in_buffer.size[0]);
 	unsigned size_temp = LPS[lid]->in_buffer.size[0];
 	unsigned new_off = LPS[lid]->in_buffer.size[0];
@@ -442,16 +428,12 @@ int buffer_switch(unsigned lid){
 	void* temp = LPS[lid]->in_buffer.base[1];
 	LPS[lid]->in_buffer.base[1] = LPS[lid]->in_buffer.base[0];
 	LPS[lid]->in_buffer.base[0] = temp;
-	//metto header e footer al nuovo blocco 
-	//che ora si trova in size[1]
 	*HEADER_ADDRESS_OF(new_off,lid)=new_size;
 	*FOOTER_ADDRESS_OF(new_off,new_size,lid)=new_size;
 	
-	//metto prev e next al nuovo blocco (che sarà ff.. politica LIFO), il new off è la vecchia size
+	//LIFO POLICY
 	*PREV_FREE_BLOCK_ADDRESS(new_off,lid) = IN_USE_FLAG;
-	//va bene anche nel caso in cui FF Sia IN_USE_FLAG, significherà il nostro nuovo new non ha un next
 	*NEXT_FREE_BLOCK_ADDRESS(new_off,lid) = LPS[lid]->in_buffer.first_free;
-	//se esisteva un first_free gli dico che adesso ha un prev ed il prev è new_off
 	if(IS_AVAILABLE(LPS[lid]->in_buffer.first_free,lid))
 		*PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid) = new_off;
 	LPS[lid]->in_buffer.first_free = new_off;		
@@ -459,53 +441,37 @@ int buffer_switch(unsigned lid){
 	return MEM_ASSIGNED;
 }
 
-//L'OPERAZIONE DI SPLIT E' UN'OPERAZIONE CHE DIVIDE UN BLOCCO DI MEMORIA E CAMBIA GLI HEADER AD ENTRAMBI
-//@param addr è l'offset relativo all'header del blocco che sto allocando
+//@param addr è l'offset relativo all'header del blocco che sto allocando (sicuramente di dimensione sufficiente)
 //@param size è la size che mi serve in quel blocco...
-//tutti i controlli che sia il blocco giusto sono fatti altrove!
-//ritorna il successivo libero di addr. questo può essere quello scritto in addr (quando è ancora un blocco libero)
-//o il blocco splittato (se addr è più grande di size + MIN_BLOCK_SIZE)
-//questa funzione si preoccupa anche di rimettere apposto la free list
-
 //@return l'addr del successivo blocco libero oppure IN_USE_FLAG se non c'è un successivo blocco libero
-//			è interessante solo se è stato chiamato dal first_free
 unsigned split(unsigned addr, unsigned size, unsigned lid){
+	
 	//aggiungo 2 unsigned perchè size è al netto degli header
 	unsigned splitted = addr + size + 2 * sizeof(unsigned);
-	unsigned addr_size = FREE_SIZE(addr,lid); //GIÀ AL NETTO DI HEADER E FOOTER
+	unsigned addr_size = FREE_SIZE(addr,lid);
 	unsigned splitted_size;
 	int ret = 0;
 	
-	
-	//se il blocco successivo è ancora nei limiti e non è in uso, non può essere IN_USE_FLAG
-	//il flag lo usiamo solo nella free list per indicare che il prev e/o il succ non ci sono
-	//se non è in uso il suo
 	if(addr_size-size!=0){ //non può essere negativo perchè so che addr può contenere size
 		splitted_size = addr_size - size;		
 		
 		if(splitted_size<MIN_BLOCK_DIMENSION){
-			//lo allocherò tutto
 			size = addr_size;
-			//in questo caso è come se splitted non ci fosse
 			goto adegua_al_successivo;
 		}
-		
-		
-		//se il blocco successivo non è fuori dai limiti (IL CONTROLLO NON LO FACCIO PERCHÈ LHO FATTO SOPRA)
-		//il blocco nuovo si crea solo in questo caso
 		else{
 			//il posto per h e f ricordando che le size in H e F sono al netto dell'overhead
 			splitted_size-= 2*sizeof(unsigned);
-			//metto gli header al nuovo blocco che si è creato
+
 			*HEADER_ADDRESS_OF(splitted,lid) = splitted_size;
 			*FOOTER_ADDRESS_OF(splitted, splitted_size , lid) = splitted_size;
-			//copio il next free e il prev free!!
+
 			memcpy(NEXT_FREE_BLOCK_ADDRESS(splitted,lid), NEXT_FREE_BLOCK_ADDRESS(addr,lid), sizeof(unsigned));
 			memcpy(PREV_FREE_BLOCK_ADDRESS(splitted,lid), PREV_FREE_BLOCK_ADDRESS(addr,lid), sizeof(unsigned));
-			//DICO AL SUCCESSIVO CHE IL PREV SI E' spostato in avanti(se il successivo non è un uso)
+
 			if(IS_AVAILABLE(NEXT_FREE_BLOCK(splitted,lid),lid))
 				memcpy(PREV_FREE_BLOCK_ADDRESS(NEXT_FREE_BLOCK(splitted,lid),lid), &splitted, sizeof(unsigned));
-			//DICO AL PREV CHE IL NEXT SI È SPOSTATO (SEMPRE SOLO SE IL PREV NON È IN USO)
+
 			if(IS_AVAILABLE(PREV_FREE_BLOCK(splitted,lid),lid)){
 				memcpy(NEXT_FREE_BLOCK_ADDRESS(PREV_FREE_BLOCK(splitted,lid),lid), &splitted, sizeof(unsigned));
 				
@@ -538,10 +504,8 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 	return ret;
 }
 
-//chi lo chiama si deve preoccupare di eseguire lo spinlock
-//RICORDA CHE L'OFFSET E' QUELLO DEL MESSAGGIO E NON QUELLO DEL BLOCCO (CHE CORRISPONDE CON L'HEADER!!)
-//STESSO DISCORSO PER SIZE! SIZE E' LA DIMENSIONE DEL MESSAGGIO! NON DEL BLOCCO!!
-//NON PUOI USARLA! PUÒ DARSI CHE ABBIAMO DOVUTA INGRANDIRLA PER RIEMPIRE IL BLOCCO!!
+//atomic needed!
+//@param payload_offset offset nell'ingoing buffer del payload del blocco da liberare
 void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 	unsigned header_offset = payload_offset-sizeof(unsigned); //lavorare con questo.
 	unsigned size = MARK_AS_NOT_IN_USE(HEADER_OF(header_offset,lid));	//potrebbe essere diversa da message_size se abbiamo "arrotondato" le dimensioni del blocco
@@ -605,14 +569,12 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 	}
 }
 
-//to delete è un blocco libero, lo elimino dalla free list perchè ci vorrò mettere un blocco che è la fusione
-//di to_delete e l'adiacente che sta per essere eliminato
+//@param to_delete blocco da eliminare dalla free_list
 void delete_from_free_list(unsigned to_delete, unsigned lid){
 
 	if(to_delete==LPS[lid]->in_buffer.first_free)
 		LPS[lid]->in_buffer.first_free = NEXT_FREE_BLOCK(LPS[lid]->in_buffer.first_free,lid);
 
-	
 	//io voglio dire al precedente che il next è cambiato.. devo quindi controllare che il precedente
 	//sia davvero un blocco libero e non un fake pointer
 	if(IS_AVAILABLE(PREV_FREE_BLOCK(to_delete,lid),lid))
@@ -624,13 +586,14 @@ void delete_from_free_list(unsigned to_delete, unsigned lid){
 		memcpy(PREV_FREE_BLOCK_ADDRESS(NEXT_FREE_BLOCK(to_delete,lid),lid), PREV_FREE_BLOCK_ADDRESS(to_delete,lid),sizeof(unsigned));
 }
 
-//nuovo header nuovo footer e
-//size al netto di h e f
+//@param header offset dell'header del nuovo blocco che si sta creando
+//@param footer offset del footer del nuovo blocco che si sta creando
+//@param size dimensione del nuovo blocco che si sta creando, al netto di header e footer
+//alloca un nuovo segmento e lo inserisce in testa nella free list
 void coalesce(unsigned header, unsigned footer, unsigned size, unsigned lid){
 	bzero(PAYLOAD_OF(header,lid),size);
 	*HEADER_ADDRESS_OF(header, lid) = size;
 	*FOOTER_ADDRESS_OF(header, size, lid) = size;
-	//questa situazione può crearsi anche da delete_from_free_list
 	if(IS_AVAILABLE(LPS[lid]->in_buffer.first_free,lid))
 		memcpy(PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid), &header, sizeof(unsigned));
 	*NEXT_FREE_BLOCK_ADDRESS(header,lid) = LPS[lid]->in_buffer.first_free;
