@@ -203,9 +203,8 @@ static void LP_main_loop(void *args) {
 		if(current_evt->size>0){
 			current_evt_buffer=rsalloc(current_evt->size);
 			
-			spin_lock(&LPS[LidToGid(current_lp)]->in_buffer.lock[0]);
+
 			memcpy(current_evt_buffer, LPS[current_lp]->in_buffer.base[0] + current_evt->payload_offset, current_evt->size);
-			spin_unlock(&LPS[LidToGid(current_lp)]->in_buffer.lock[0]);
 		}
 		
 		ProcessEvent[current_lp](LidToGid(current_lp), current_evt->timestamp, current_evt->type, 
