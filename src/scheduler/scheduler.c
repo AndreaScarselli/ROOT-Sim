@@ -202,8 +202,6 @@ static void LP_main_loop(void *args) {
 		//devo copiarlo altrimenti magari durante l'esecuzione dell'evento viene spostato e succedono disastri
 		if(current_evt->size>0){
 			current_evt_buffer=rsalloc(current_evt->size);
-			
-
 			memcpy(current_evt_buffer, LPS[current_lp]->in_buffer.base[0] + current_evt->payload_offset, current_evt->size);
 		}
 		

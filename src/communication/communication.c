@@ -386,7 +386,6 @@ start:
 		ret = buffer_switch(lid);
 		if(ret==NO_MEM)
 			return NO_MEM;
-		goto start;
 	}
 	
 	actual = LPS[lid]->in_buffer.first_free;
