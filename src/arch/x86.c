@@ -115,8 +115,6 @@ inline int atomic_test_and_set_x86(int *b) {
 	return !result;
 }
 
-
-
 /**
 * This function implements the atomic_test_and_reset on an integer value, for x86-64 archs
 *
@@ -140,6 +138,53 @@ inline int atomic_test_and_reset_x86(int *b) {
 	return result;
 }
 
+
+/** 
+ * Perform a BTS x86 operation on the MRB
+ * 
+ * 	@param b 
+ * 
+ *	@return 0 if MRB was 1 before the operation
+ * 
+ * 	@return 1 otherwise
+*/
+inline int atomic_MRB_test_and_set_x86(unsigned *b) {
+    int result = 0;
+
+	__asm__  __volatile__ (
+		"LOCK bts $31, %1;\n\t"
+		"adc %0, %0"
+		: "=r" (result)
+		: "m" (*b), "0" (result)
+		: "memory"
+	);
+
+	return !result;
+}
+
+/** 
+ * Perform a BTR x86 operation on the MRB
+ * 
+ * 	@param b 
+ * 
+ *	@return 1 if the bit has been reset
+ * 
+ *  @return 0 otherwhise
+ * 
+*/
+inline int atomic_MRB_test_and_reset_x86(unsigned *b) {
+    int result = 0;
+
+	__asm__  __volatile__ (
+		"LOCK btr $31, %1;\n\t"
+		"adc %0, %0"
+		: "=r" (result)
+		: "m" (*b), "0" (result)
+		: "memory"
+	);
+
+	return !result;
+}
 
 
 /**
