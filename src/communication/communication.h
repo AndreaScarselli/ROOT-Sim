@@ -112,7 +112,7 @@ enum _control_msgs {
 #define EXTRA_BUFFER_SIZE 8192
 
 typedef struct _ingoing_buffer{
-	short 		reallocation_flag;
+	atomic_t 	reallocation_flag;
 	unsigned 	first_free;
 	unsigned 	size;
 	spinlock_t 	lock;

@@ -118,13 +118,8 @@ void ParallelScheduleNewEvent(unsigned int gid_receiver, simtime_t timestamp, un
 	}
 
 	if (event_content != NULL && event_size>0) {
-		spin_lock(&LPS[event.receiver]->in_buffer.lock[0]);
-		do{
-			event.payload_offset = alloca_memoria_ingoing_buffer(event.receiver, event_size);
-		}while(event.payload_offset==NO_MEM);
-		memcpy(LPS[event.receiver]->in_buffer.base[0] + event.payload_offset, event_content, event_size);
-		spin_unlock(&LPS[event.receiver]->in_buffer.lock[0]);
-
+		event.payload_offset = alloca_memoria_ingoing_buffer(event.receiver, event_size);
+		memcpy(LPS[event.receiver]->in_buffer.base + event.payload_offset, event_content, event_size);
 	}
 
 	insert_outgoing_msg(&event);
