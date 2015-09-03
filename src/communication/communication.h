@@ -109,11 +109,16 @@ enum _control_msgs {
 #define IS_NOT_AVAILABLE(OFFSET,LID) ( ((OFFSET) == (IN_USE_FLAG)) || (IS_IN_USE(HEADER_OF(OFFSET,LID))))	
 #define IS_AVAILABLE(OFFSET,LID) (!(IS_NOT_AVAILABLE(OFFSET,LID)))
 
+#define EXTRA_BUFFER_SIZE 8192
+
 typedef struct _ingoing_buffer{
-	void*	 base[2];
-	unsigned first_free;
-	unsigned size[2];
-	spinlock_t lock[2];
+	short 		reallocation_flag;
+	unsigned 	first_free;
+	unsigned 	size;
+	spinlock_t 	lock;
+	unsigned 	presence_counter;
+	void* 		extra_buffer[EXTRA_BUFFER_SIZE];
+	void*		base;
 }ingoing_buffer;
 
 
