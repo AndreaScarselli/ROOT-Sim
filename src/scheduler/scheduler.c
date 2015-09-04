@@ -214,7 +214,7 @@ static void LP_main_loop(void *args) {
 				if(LPS[current_lp]->in_buffer.extra_buffer[i]==NULL)
 					break;
 //				fprintf(stderr, "block size is %u\n", block_size);
-				block_size = (*((unsigned*) (LPS[current_lp]->in_buffer.extra_buffer[i]))) + 2*sizeof(unsigned);
+				block_size = MARK_AS_NOT_IN_USE(*((unsigned*) (LPS[current_lp]->in_buffer.extra_buffer[i]))) + 2*sizeof(unsigned);
 //				fprintf(stderr, "new_ptr is %p, actual_offset is %u, size is %u\n", new_ptr, actual_offset, LPS[current_lp]->in_buffer.size);
 //				fprintf(stderr, "contiene %u\n", (*((unsigned*) (LPS[current_lp]->in_buffer.extra_buffer[i]))));
 //				fprintf(stderr, "LPS[current_lp]->in_buffer.extra_buffer[i]=%p, block_size=%u\n", LPS[current_lp]->in_buffer.extra_buffer[i], block_size);
