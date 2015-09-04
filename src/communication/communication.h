@@ -95,7 +95,7 @@ enum _control_msgs {
 //RESTITUISCE L'INDIRIZZO DEL FOOTER
 #define FOOTER_ADDRESS_OF(OFFSET,SIZE,LID) ((unsigned*) (( (LPS[LID]->in_buffer.base) + (OFFSET) + (sizeof(unsigned)) + (SIZE) ) ))
 //QUESTO "RESTITUISCE" un indirizzo
-#define PAYLOAD_OF(OFFSET,LID) ((LPS[LID]->in_buffer.base[0])+(OFFSET)+(sizeof(unsigned)))
+#define PAYLOAD_OF(OFFSET,LID) ((LPS[LID]->in_buffer.base)+(OFFSET)+(sizeof(unsigned)))
 //RICORDATI CHE LA DIMENSIONE È NELL'HEADER E CHE È GIA AL NETTO DI HEADER E FOOTER
 #define FREE_SIZE(OFFSET,LID) (HEADER_OF(OFFSET,LID))
 //occhio che questo "ritorna" l'offset del successivo al blocco che ha header in offset non l'indirizzo

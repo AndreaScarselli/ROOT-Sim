@@ -39,6 +39,10 @@
 #include <datatypes/list.h>
 #include <mm/dymelor.h>
 #include <mm/allocator.h> //per allocate_segment
+#ifdef HAVE_NUMA
+#include <numaif.h>
+#include <numa.h>
+#endif
 
 /// This is the function pointer to correctly set ScheduleNewEvent API version, depending if we're running serially or parallelly
 void (* ScheduleNewEvent)(unsigned int gid_receiver, simtime_t timestamp, unsigned int event_type, void *event_content, unsigned int event_size);
@@ -118,10 +122,10 @@ void ParallelScheduleNewEvent(unsigned int gid_receiver, simtime_t timestamp, un
 	}
 
 	if (event_content != NULL && event_size>0) {
-		spin_lock(LPS[event.receiver]->in_buffer.lock);
+		spin_lock(&LPS[event.receiver]->in_buffer.lock);
 		event.payload_offset = alloca_memoria_ingoing_buffer(event.receiver, event_size);
 		memcpy(LPS[event.receiver]->in_buffer.base + event.payload_offset, event_content, event_size);
-		spin_unlock(LPS[event.receiver]->in_buffer.lock);
+		spin_unlock(&LPS[event.receiver]->in_buffer.lock);
 	}
 
 	insert_outgoing_msg(&event);
@@ -381,7 +385,7 @@ unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size){
 start:
 	if(IS_NOT_AVAILABLE(LPS[lid]->in_buffer.first_free,lid)){
 		if(atomic_read(&LPS[lid]->in_buffer.reallocation_flag)==0){
-			atomic_inc_x86(&LPS[lid]->in_buffer.presence_counter)
+			atomic_inc_x86(&LPS[lid]->in_buffer.presence_counter);
 			return use_extra_buffer(size, lid);
 		}
 		else{
@@ -402,7 +406,7 @@ start:
 		succ = NEXT_FREE_BLOCK(actual,lid);
 		if(IS_NOT_AVAILABLE(succ,lid)){
 			if(atomic_read(&LPS[lid]->in_buffer.reallocation_flag)==0){
-				atomic_inc_x86(&LPS[lid]->in_buffer.presence_counter)
+				atomic_inc_x86(&LPS[lid]->in_buffer.presence_counter);
 				return use_extra_buffer(size, lid);
 			}
 			else{
@@ -427,20 +431,24 @@ start:
 int use_extra_buffer(unsigned size, unsigned lid){
 	void* ptr;
 	unsigned offset = 0;
-	atomic_add_x86(LPS[lid]->in_buffer.extra_buffer_size_in_use, size+2*sizeof(unsigned));
-	ptr = numa_alloc_onnode(size, /**node*/);
+	atomic_add_x86(&LPS[lid]->in_buffer.extra_buffer_size_in_use, size+2*sizeof(unsigned));
+	#ifdef HAVE_NUMA
+	ptr = numa_alloc_onnode(size, 3); ///////////////////////////////////////////////////////
+	#else
+	ptr = rsalloc(size);
+	#endif
 	int i;
 	//cerco il primo blocco libero
 	for(i=0;i<EXTRA_BUFFER_SIZE;i++){
-		if(iCAS_x86(&LPS[lid]->in_buffer.extra_buffer[i], NULL, ptr) == true){
-			atomic_dec_x86(&LPS[lid]->in_buffer.presence_counter)
+		if(CAS_x86(&LPS[lid]->in_buffer.extra_buffer[i], NULL, ptr) == true){
+			atomic_dec_x86(&LPS[lid]->in_buffer.presence_counter);
 			return offset + sizeof(unsigned);
 		}
 		else
 			//offset maggiorato della dimensione del blocco + dimensione di header e footer
 			offset+= ( (*(unsigned*)(LPS[lid]->in_buffer.extra_buffer[i])) + 2 * sizeof(unsigned));
 	}
-	atomic_dec_x86(&LPS[lid]->in_buffer.presence_counter)
+	atomic_dec_x86(&LPS[lid]->in_buffer.presence_counter);
 	return NO_MEM;
 }
 
@@ -487,7 +495,7 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 	else{
 		adegua_al_successivo:
 		ret = NEXT_FREE_BLOCK(addr,lid);
-		if(ret==IN_USE_FLAG || (ret>=LPS[lid]->in_buffer.size[0]) || IS_IN_USE(HEADER_OF(ret,lid)))
+		if(ret==IN_USE_FLAG || (ret>=LPS[lid]->in_buffer.size) || IS_IN_USE(HEADER_OF(ret,lid)))
 			ret = IN_USE_FLAG;
 		//devo cambiare il prev_free a ret e dire al prev di addr che il suo succ è ora ret
 		//devo inoltre dire a ret che il suo precedente è quello di addr (se addr ha un precedente libero)
@@ -518,7 +526,7 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 	unsigned prev_footer_offset = header_offset - sizeof(unsigned); //può essere < 0
 	unsigned prev_footer;
 	if((int)(prev_footer_offset)>=0){
-		prev_footer = *(unsigned*) (LPS[lid]->in_buffer.base[0] + prev_footer_offset);	
+		prev_footer = *(unsigned*) (LPS[lid]->in_buffer.base + prev_footer_offset);	
 	}
 	else{
 		prev_footer_offset = IN_USE_FLAG;
@@ -528,7 +536,7 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 	unsigned succ_header_offset = footer_offset + sizeof(unsigned); //può uscire dai bordi
 	unsigned succ_footer_offset;
 	unsigned succ_header;
-	if(succ_header_offset<LPS[lid]->in_buffer.size[0]){
+	if(succ_header_offset<LPS[lid]->in_buffer.size){
 		succ_header = HEADER_OF(succ_header_offset,lid);
 	}
 	else{
