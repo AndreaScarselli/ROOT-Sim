@@ -188,7 +188,6 @@ static void LP_main_loop(void *args) {
 		
 		//extra buffer process;
 		if(LPS[current_lp]->in_buffer.extra_buffer[0]!=NULL){
-			puts("extra buffer in process");
 			void* new_ptr;
 			unsigned old_size = LPS[current_lp]->in_buffer.size;
 			unsigned actual_offset = old_size;
@@ -221,18 +220,17 @@ static void LP_main_loop(void *args) {
 				#else
 				rsfree(LPS[current_lp]->in_buffer.extra_buffer[i]);
 				#endif
-				LPS[current_lp]->in_buffer.extra_buffer[i]=NULL;
+				LPS[current_lp]->in_buffer.extra_buffer[i]=NULL; 
+
 			}
 			//adeguo la nuova free_list con gestione LIFO (se non sono già al limite)
 			if(actual_offset<LPS[current_lp]->in_buffer.size){
-				puts("if");
 				unsigned residual_size = LPS[current_lp]->in_buffer.size - actual_offset - 2 * sizeof(unsigned); //al netto di h e f
-				printf("size = %u and residual_size=%u\n", LPS[current_lp]->in_buffer.size , residual_size);
 				//*HEADER_ADDRESS_OF(actual_offset,current_lp) = residual_size;
 				//*FOOTER_ADDRESS_OF(actual_offset,current_lp) = residual_size;
 				coalesce(actual_offset, actual_offset + residual_size + sizeof(unsigned), residual_size, current_lp);
 			}
-			else puts("else");
+			atomic_set(&LPS[current_lp]->in_buffer.extra_buffer_size_in_use, 0);
 			atomic_set(&LPS[current_lp]->in_buffer.reallocation_flag,0);
 		}
 		
