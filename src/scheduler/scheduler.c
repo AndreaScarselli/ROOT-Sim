@@ -193,8 +193,10 @@ static void LP_main_loop(void *args) {
 			unsigned actual_offset = old_size;
 			unsigned new_size = 0;
 			unsigned block_size = 0;
-			unsigned extra_in_use = atomic_read(&LPS[current_lp]->in_buffer.extra_buffer_size_in_use);
+			unsigned extra_in_use;
 			atomic_set(&LPS[current_lp]->in_buffer.reallocation_flag,1);
+			while(atomic_read(&LPS[current_lp]->in_buffer.presence_counter)!=0);
+			extra_in_use = atomic_read(&LPS[current_lp]->in_buffer.extra_buffer_size_in_use);
 			new_size = LPS[current_lp]->in_buffer.size + extra_in_use;
 			//round up new_size
 			--new_size;
@@ -204,7 +206,6 @@ static void LP_main_loop(void *args) {
 			new_size |= new_size >> 8;
 			new_size |= new_size >> 16;
 			++new_size;
-			while(atomic_read(&LPS[current_lp]->in_buffer.presence_counter)!=0);
 			//ora sono in sezione critica
 			new_ptr = pool_realloc_memory(current_lp, old_size, new_size, LPS[current_lp]->in_buffer.base);
 			LPS[current_lp]->in_buffer.base = new_ptr;
@@ -212,12 +213,12 @@ static void LP_main_loop(void *args) {
 			for(i=0;i<EXTRA_BUFFER_SIZE;i++){
 				if(LPS[current_lp]->in_buffer.extra_buffer[i]==NULL)
 					break;
-				fprintf(stderr, "block size is %u\n", block_size);
+//				fprintf(stderr, "block size is %u\n", block_size);
 				block_size = (*((unsigned*) (LPS[current_lp]->in_buffer.extra_buffer[i]))) + 2*sizeof(unsigned);
-				fprintf(stderr, "new_ptr is %p, actual_offset is %u, size is %u\n", new_ptr, actual_offset, LPS[current_lp]->in_buffer.size);
-				fprintf(stderr, "contiene %u\n", (*((unsigned*) (LPS[current_lp]->in_buffer.extra_buffer[i]))));
-				fprintf(stderr, "LPS[current_lp]->in_buffer.extra_buffer[i]=%p, block_size=%u\n", LPS[current_lp]->in_buffer.extra_buffer[i], block_size);
-				memcpy(new_ptr + actual_offset, LPS[current_lp]->in_buffer.extra_buffer[i], block_size);
+//				fprintf(stderr, "new_ptr is %p, actual_offset is %u, size is %u\n", new_ptr, actual_offset, LPS[current_lp]->in_buffer.size);
+//				fprintf(stderr, "contiene %u\n", (*((unsigned*) (LPS[current_lp]->in_buffer.extra_buffer[i]))));
+//				fprintf(stderr, "LPS[current_lp]->in_buffer.extra_buffer[i]=%p, block_size=%u\n", LPS[current_lp]->in_buffer.extra_buffer[i], block_size);
+				memcpy(new_ptr + actual_offset, LPS[current_lp]->in_buffer.extra_buffer[i], block_size); //copio anche header e footer
 				actual_offset += block_size;
 				#ifdef HAVE_NUMA
 				numa_free(LPS[current_lp]->in_buffer.extra_buffer[i], block_size); //automaticamente fa il round up al page size
@@ -247,7 +248,7 @@ static void LP_main_loop(void *args) {
 		//devo copiarlo altrimenti magari durante l'esecuzione dell'evento viene spostato e succedono disastri
 		if(current_evt->size>0){
 			current_evt_buffer=rsalloc(current_evt->size);
-			fprintf(stderr, "seconda\n");
+//			fprintf(stderr, "seconda\n");
 			memcpy(current_evt_buffer, LPS[current_lp]->in_buffer.base + current_evt->payload_offset, current_evt->size);
 		}
 		
