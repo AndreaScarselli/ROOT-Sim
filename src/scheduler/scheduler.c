@@ -182,16 +182,46 @@ static void LP_main_loop(void *args) {
 
 	while(true) {
 		
-		spin_lock(&LPS[current_lp]->in_buffer.lock[1]);
-		//
-		if(LPS[current_lp]->in_buffer.size[1]<LPS[current_lp]->in_buffer.size[0]){
-			pool_release_memory(current_lp, LPS[current_lp]->in_buffer.base[1]);
-			LPS[current_lp]->in_buffer.base[1] = pool_get_memory(current_lp, LPS[current_lp]->in_buffer.size[0] * INGOING_BUFFER_GROW_FACTOR);
-			LPS[current_lp]->in_buffer.size[1] = LPS[current_lp]->in_buffer.size[0] * INGOING_BUFFER_GROW_FACTOR;
+		//extra buffer process;
+		if(extra_buffer[0]!=NULL){
+			void* new_ptr;
+			unsigned old_size = LPS[current_lp]->in_buffer.size;
+			unsigned actual_offset = 0;
+			unsigned new_size;
+			unsigned block_size;
+			atomic_set(LPS[lid]->in_buffer.reallocation_flag,1);
+			new_size = LPS[lid]->in_buffer.size + extra_buffer_size_in_use;
+			//round up new_size
+			--new_size;
+			new_size |= new_size >> 1;
+			new_size |= new_size >> 2;
+			new_size |= new_size >> 4;
+			new_size |= new_size >> 8;
+			new_size |= new_size >> 16;
+			++new_size;
+			while(LPS[lid]->in_buffer.presence_counter!=0);
+			//ora sono in sezione critica
+			new_ptr = pool_realloc_memory(current_lp, old_size, new_size, LPS[current_lp]->in_buffer.base);
+			LPS[current_lp]->in_buffer.base = new_ptr;
+			LPS[current_lp]->in_buffer.size = new_size;
+			for(i=0;i<EXTRA_BUFFER_SIZE;i++){
+				if(extra_buffer[i]==NULL)
+					break;
+				block_size = (*(unsigned*) (extra_buffer[i])) + 2*sizeof(unsigned);
+				memcpy(new_ptr + actual_offset, extra_buffer[i], block_size);
+				actual_offset += block_size;
+				numa_free(extra_buffer[i], block_size); //automaticamente fa il round up al page size
+				extra_buffer[i]=NULL;
+			}
+			//adeguo la nuova free_list con gestione LIFO (se non sono già al limite)
+			if(actual_offset<LPS[lid]->in_buffer.size){
+				unsigned residual_size = LPS[lid]->in_buffer.size - actual_offset - 2 * sizeof(unsigned); //al netto di h e f
+				//*HEADER_ADDRESS_OF(actual_offset,current_lp) = residual_size;
+				//*FOOTER_ADDRESS_OF(actual_offset,current_lp) = residual_size;
+				coalesce(actual_offset, actual_offset + residual_size + sizeof(unsigned), redisual_size, current_lp);
+			}
+			atomic_set(LPS[lid]->in_buffer.reallocation_flag,0);
 		}
-		//
-		spin_unlock(&LPS[current_lp]->in_buffer.lock[1]);
-
 		
 		// Process the event
 		timer event_timer;
@@ -527,4 +557,3 @@ void schedule(void) {
 	LogState(lid);
 
 }
-
