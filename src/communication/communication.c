@@ -438,9 +438,8 @@ int use_extra_buffer(unsigned size, unsigned lid){
 	ptr = rsalloc(size+2*sizeof(unsigned));
 	#endif
 	//METTO HEADER E FOOTER
-	size = MARK_AS_IN_USE(size);
-	memcpy(ptr,&size,sizeof(unsigned));
-	memcpy(ptr+sizeof(unsigned)+size,&size,sizeof(unsigned));
+	*(unsigned*)ptr = MARK_AS_IN_USE(size);
+	*(unsigned*)(ptr+sizeof(unsigned)+size) = MARK_AS_IN_USE(size);
 	int i;
 	//cerco il primo blocco libero
 	for(i=0;i<EXTRA_BUFFER_SIZE;i++){
@@ -588,9 +587,9 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 
 //@param to_delete blocco da eliminare dalla free_list
 void delete_from_free_list(unsigned to_delete, unsigned lid){
-	fprintf(stderr, "to_delete is %u\n", to_delete);
-	fprintf(stderr, "buffer size is %u\n", LPS[lid]->in_buffer.size);
-	fprintf(stderr, "il contenuto è %u\n", HEADER_OF(to_delete,lid));
+//	fprintf(stderr, "to_delete is %u\n", to_delete);
+//	fprintf(stderr, "buffer size is %u\n", LPS[lid]->in_buffer.size);
+//	fprintf(stderr, "il contenuto è %u\n", HEADER_OF(to_delete,lid));
 	if(to_delete==LPS[lid]->in_buffer.first_free)
 		LPS[lid]->in_buffer.first_free = NEXT_FREE_BLOCK(LPS[lid]->in_buffer.first_free,lid);
 

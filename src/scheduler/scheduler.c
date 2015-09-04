@@ -326,24 +326,10 @@ void initialize_LP(unsigned int lp) {
 	//Initialize ingoing buffer
 	spinlock_init(&LPS[lp]->in_buffer.lock);
 	
-	
-	/**
-	 * 
-	 *  atomic_t 	reallocation_flag;
-		unsigned 	first_free;
-		unsigned 	size;
-		atomic_t 	extra_buffer_size_in_use; //per sapere quanto deve essere grande il nuovo buffer
-		spinlock_t 	lock;
-		atomic_t 	presence_counter; // presenza nell'utilizzo dell'extra buffer, in tal caso non dobbiamo ancora riallocare
-		void* 		extra_buffer[EXTRA_BUFFER_SIZE];
-		void*		base;
-	 * 
-	 * 
-	 * 
-	 */
 	spin_lock(&LPS[lp]->in_buffer.lock);
-	for(i=0;i<EXTRA_BUFFER_SIZE;i++)
+/**	for(i=0;i<EXTRA_BUFFER_SIZE;i++)
 		LPS[lp]->in_buffer.extra_buffer[i]=NULL;
+*/
 	atomic_set(&LPS[lp]->in_buffer.reallocation_flag, 0);
 	atomic_set(&LPS[lp]->in_buffer.extra_buffer_size_in_use, 0);
 	atomic_set(&LPS[lp]->in_buffer.presence_counter, 0); 
