@@ -460,6 +460,9 @@ int use_extra_buffer(unsigned size, unsigned lid){
 //@return l'addr del successivo blocco libero oppure IN_USE_FLAG se non c'è un successivo blocco libero
 unsigned split(unsigned addr, unsigned size, unsigned lid){
 	
+	while(atomic_read(&LPS[lid]->in_buffer.reallocation_flag)!=0);
+	atomic_inc_x86(&LPS[lid]->in_buffer.presence_counter);
+	
 	//aggiungo 2 unsigned perchè size è al netto degli header
 	unsigned splitted = addr + size + 2 * sizeof(unsigned);
 	unsigned addr_size = FREE_SIZE(addr,lid);
@@ -514,13 +517,16 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 	//DEVO AGGIORNARE L'HEADER E IL FOOTER DEL BLOCCO CHE HO APPENA ALLOCATO. RICORDA ANCHE L'OR CON IN USE
 	*HEADER_ADDRESS_OF(addr,lid) = MARK_AS_IN_USE(size);
 	*FOOTER_ADDRESS_OF(addr,size,lid) = MARK_AS_IN_USE(size);
-
+		
+	atomic_dec_x86(&LPS[lid]->in_buffer.presence_counter);
 	return ret;
 }
 
 //atomic needed!
 //@param payload_offset offset nell'ingoing buffer del payload del blocco da liberare
 void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
+	while(atomic_read(&LPS[lid]->in_buffer.reallocation_flag)!=0);
+	atomic_inc_x86(&LPS[lid]->in_buffer.presence_counter);
 	if(payload_offset>=LPS[lid]->in_buffer.size)
 		rootsim_error(true, "il messaggio si trova ancora nell'extra buffer. Questo non dovrebbe accadere");
 	unsigned header_offset = payload_offset-sizeof(unsigned); //lavorare con questo.
@@ -583,6 +589,7 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 		delete_from_free_list(succ_header_offset,lid);
 		coalesce(prev_header_offset,succ_footer_offset,size+succ_size+prev_size+4*sizeof(unsigned),lid);
 	}
+	atomic_dec_x86(&LPS[lid]->in_buffer.presence_counter);
 }
 
 //@param to_delete blocco da eliminare dalla free_list

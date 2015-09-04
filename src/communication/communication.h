@@ -117,7 +117,7 @@ typedef struct _ingoing_buffer{
 	unsigned 	size;
 	atomic_t 	extra_buffer_size_in_use; //per sapere quanto deve essere grande il nuovo buffer
 	spinlock_t 	lock;
-	atomic_t 	presence_counter; // presenza nell'utilizzo dell'extra buffer, in tal caso non dobbiamo ancora riallocare
+	atomic_t 	presence_counter; // presenza nell'utilizzo dell'extra buffer o del buffer, in tal caso non dobbiamo ancora riallocare
 	void* 		extra_buffer[EXTRA_BUFFER_SIZE];
 	void*		base;
 }ingoing_buffer;
