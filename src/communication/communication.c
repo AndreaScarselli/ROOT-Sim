@@ -424,7 +424,7 @@ start:
 	}	
 }
 
-//@return offset "fittizio", già al netto dell'header
+//@return offset "fittizio", già al netto dell'header CON HEADER E FOOTER GIA' INSERITI
 //side effect: diminuisce il presence counter
 //bisogna fare in modo che se il destinatario sta eseguendo concorrentemente la riallocazione questa funzione
 //non deve essere chiamata... quando il destinatario rialloca devono stare tutti fermi.
@@ -433,10 +433,12 @@ int use_extra_buffer(unsigned size, unsigned lid){
 	unsigned offset = 0;
 	atomic_add_x86(&LPS[lid]->in_buffer.extra_buffer_size_in_use, size+2*sizeof(unsigned));
 	#ifdef HAVE_NUMA
-	ptr = numa_alloc_onnode(size, 3); ///////////////////////////////////////////////////////
+	ptr = numa_alloc_onnode(size+2*sizeof(unsigned), 3); ///////////////////////////////////////////////////////
 	#else
-	ptr = rsalloc(size);
+	ptr = rsalloc(size+2*sizeof(unsigned));
 	#endif
+	memcpy(ptr,&size,sizeof(unsigned));
+	memcpy(ptr+sizeof(unsigned)+size,&size,sizeof(unsigned));
 	int i;
 	//cerco il primo blocco libero
 	for(i=0;i<EXTRA_BUFFER_SIZE;i++){

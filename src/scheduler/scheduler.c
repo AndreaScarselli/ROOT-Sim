@@ -173,7 +173,6 @@ void scheduler_fini(void) {
 * @param args arguments passed to the LP main loop. Currently, this is not used.
 */
 static void LP_main_loop(void *args) {
-
 	(void)args; // this is to make the compiler stop complaining about unused args
 	void* current_evt_buffer=NULL;
 	
@@ -188,11 +187,12 @@ static void LP_main_loop(void *args) {
 		
 		//extra buffer process;
 		if(LPS[current_lp]->in_buffer.extra_buffer[0]!=NULL){
-			void* new_ptr;
+			puts("in process");
+			void* new_ptr = NULL;
 			unsigned old_size = LPS[current_lp]->in_buffer.size;
 			unsigned actual_offset = old_size;
-			unsigned new_size;
-			unsigned block_size;
+			unsigned new_size = 0;
+			unsigned block_size = 0;
 			unsigned extra_in_use = atomic_read(&LPS[current_lp]->in_buffer.extra_buffer_size_in_use);
 			atomic_set(&LPS[current_lp]->in_buffer.reallocation_flag,1);
 			new_size = LPS[current_lp]->in_buffer.size + extra_in_use;
@@ -212,7 +212,11 @@ static void LP_main_loop(void *args) {
 			for(i=0;i<EXTRA_BUFFER_SIZE;i++){
 				if(LPS[current_lp]->in_buffer.extra_buffer[i]==NULL)
 					break;
-				block_size = (*(unsigned*) (LPS[current_lp]->in_buffer.extra_buffer[i])) + 2*sizeof(unsigned);
+				fprintf(stderr, "block size is %u\n", block_size);
+				block_size = (*((unsigned*) (LPS[current_lp]->in_buffer.extra_buffer[i]))) + 2*sizeof(unsigned);
+				fprintf(stderr, "new_ptr is %p, actual_offset is %u, size is %u\n", new_ptr, actual_offset, LPS[current_lp]->in_buffer.size);
+				fprintf(stderr, "contiene %u\n", (*((unsigned*) (LPS[current_lp]->in_buffer.extra_buffer[i]))));
+				fprintf(stderr, "LPS[current_lp]->in_buffer.extra_buffer[i]=%p, block_size=%u\n", LPS[current_lp]->in_buffer.extra_buffer[i], block_size);
 				memcpy(new_ptr + actual_offset, LPS[current_lp]->in_buffer.extra_buffer[i], block_size);
 				actual_offset += block_size;
 				#ifdef HAVE_NUMA
@@ -243,6 +247,7 @@ static void LP_main_loop(void *args) {
 		//devo copiarlo altrimenti magari durante l'esecuzione dell'evento viene spostato e succedono disastri
 		if(current_evt->size>0){
 			current_evt_buffer=rsalloc(current_evt->size);
+			fprintf(stderr, "seconda\n");
 			memcpy(current_evt_buffer, LPS[current_lp]->in_buffer.base + current_evt->payload_offset, current_evt->size);
 		}
 		
@@ -320,8 +325,27 @@ void initialize_LP(unsigned int lp) {
 	//Initialize ingoing buffer
 	spinlock_init(&LPS[lp]->in_buffer.lock);
 	
+	
+	/**
+	 * 
+	 *  atomic_t 	reallocation_flag;
+		unsigned 	first_free;
+		unsigned 	size;
+		atomic_t 	extra_buffer_size_in_use; //per sapere quanto deve essere grande il nuovo buffer
+		spinlock_t 	lock;
+		atomic_t 	presence_counter; // presenza nell'utilizzo dell'extra buffer, in tal caso non dobbiamo ancora riallocare
+		void* 		extra_buffer[EXTRA_BUFFER_SIZE];
+		void*		base;
+	 * 
+	 * 
+	 * 
+	 */
 	spin_lock(&LPS[lp]->in_buffer.lock);
-
+	for(i=0;i<EXTRA_BUFFER_SIZE;i++)
+		LPS[lp]->in_buffer.extra_buffer[i]=NULL;
+	atomic_set(&LPS[lp]->in_buffer.reallocation_flag, 0);
+	atomic_set(&LPS[lp]->in_buffer.extra_buffer_size_in_use, 0);
+	atomic_set(&LPS[lp]->in_buffer.presence_counter, 0); 
 	unsigned free_size = INGOING_BUFFER_INITIAL_SIZE - 2 * sizeof(unsigned);
 	LPS[lp]->in_buffer.base = pool_get_memory(LPS[lp]->lid, INGOING_BUFFER_INITIAL_SIZE);
 	//offset 0
