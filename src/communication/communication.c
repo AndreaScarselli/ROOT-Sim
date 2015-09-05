@@ -125,6 +125,8 @@ void ParallelScheduleNewEvent(unsigned int gid_receiver, simtime_t timestamp, un
 		spin_lock(&LPS[event.receiver]->in_buffer.lock);
 		event.payload_offset = alloca_memoria_ingoing_buffer(event.receiver, event_size);
 		//controlla se non abbiamo scritto nell'extra buffer
+		if(event.payload_offset==NO_MEM)
+			rootsim_error(true, "non c'è più memoria disponibile nell'extra buffer");
 		if(event.payload_offset < LPS[event.receiver]->in_buffer.size)
 			memcpy(LPS[event.receiver]->in_buffer.base + event.payload_offset, event_content, event_size);
 		spin_unlock(&LPS[event.receiver]->in_buffer.lock);
@@ -430,9 +432,10 @@ start:
 //side effect: diminuisce il presence counter
 //bisogna fare in modo che se il destinatario sta eseguendo concorrentemente la riallocazione questa funzione
 //non deve essere chiamata... quando il destinatario rialloca devono stare tutti fermi.
-int use_extra_buffer(unsigned size, unsigned lid){
+unsigned use_extra_buffer(unsigned size, unsigned lid){
 	void* ptr;
-	unsigned offset = 0;
+	unsigned offset = LPS[lid]->in_buffer.size;
+	int i;
 	atomic_add_x86(&LPS[lid]->in_buffer.extra_buffer_size_in_use, size+2*sizeof(unsigned));
 	#ifdef HAVE_NUMA
 	ptr = numa_alloc_onnode(size+2*sizeof(unsigned), 3); ///////////////////////////////////////////////////////
@@ -442,7 +445,6 @@ int use_extra_buffer(unsigned size, unsigned lid){
 	//METTO HEADER E FOOTER
 	*(unsigned*)ptr = MARK_AS_IN_USE(size);
 	*(unsigned*)(ptr+sizeof(unsigned)+size) = MARK_AS_IN_USE(size);
-	int i;
 	//cerco il primo blocco libero
 	for(i=0;i<EXTRA_BUFFER_SIZE;i++){
 		if(CAS_x86(&LPS[lid]->in_buffer.extra_buffer[i], NULL, ptr) == true){

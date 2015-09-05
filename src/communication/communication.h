@@ -156,7 +156,7 @@ void dealloca_memoria_ingoing_buffer(unsigned, unsigned);
 unsigned split(unsigned addr, unsigned size, unsigned lid);
 void coalesce(unsigned,unsigned,unsigned,unsigned);
 void delete_from_free_list(unsigned, unsigned);
-int buffer_switch(unsigned lid);
+unsigned use_extra_buffer(unsigned lid);
 
 /* Functions invoked by other modules */
 extern void communication_init(void);
