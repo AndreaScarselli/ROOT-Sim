@@ -124,7 +124,9 @@ void ParallelScheduleNewEvent(unsigned int gid_receiver, simtime_t timestamp, un
 	if (event_content != NULL && event_size>0) {
 		spin_lock(&LPS[event.receiver]->in_buffer.lock);
 		event.payload_offset = alloca_memoria_ingoing_buffer(event.receiver, event_size);
-		memcpy(LPS[event.receiver]->in_buffer.base + event.payload_offset, event_content, event_size);
+		//controlla se non abbiamo scritto nell'extra buffer
+		if(event.payload_offset < LPS[event.receiver]->in_buffer.size)
+			memcpy(LPS[event.receiver]->in_buffer.base + event.payload_offset, event_content, event_size);
 		spin_unlock(&LPS[event.receiver]->in_buffer.lock);
 	}
 
