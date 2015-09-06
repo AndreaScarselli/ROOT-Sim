@@ -241,7 +241,7 @@ static void LP_main_loop(void *args) {
 		
 		if(current_evt->size>0){
 			if(current_evt->payload_offset>= LPS[current_evt->receiver]->in_buffer.size)
-				rootsim_error(true, "---Il messaggio è ancora nell'extra buffer... non dovrebbe accadere\n");
+				rootsim_error(true, "(LP_MAIN_LOOP)Il messaggio è ancora nell'extra buffer... non dovrebbe accadere\n");
 			current_evt_buffer=rsalloc(current_evt->size);			
 			
 			//la riallocazione la può fare solo chi fa questa memcpy.. non serve bloccare tutto
