@@ -187,51 +187,7 @@ static void LP_main_loop(void *args) {
 		current_evt_buffer=NULL;
 		
 		//extra buffer process;
-		if(atomic_read(&LPS[current_lp]->in_buffer.extra_buffer_size_in_use)!=0){
-			spin_lock(&LPS[current_lp]->in_buffer.lock);
-			void* 	 new_ptr = NULL;
-			unsigned old_size = LPS[current_lp]->in_buffer.size;
-			unsigned actual_offset = old_size;
-			unsigned new_size = 0;
-			unsigned block_size = 0;
-			unsigned extra_in_use;
-//			atomic_set(&LPS[current_lp]->in_buffer.reallocation_flag,1);
-			//ora sono in sezione critica
-			extra_in_use = atomic_read(&LPS[current_lp]->in_buffer.extra_buffer_size_in_use);
-			new_size = old_size + extra_in_use + MIN_BLOCK_DIMENSION;
-			//round up new_size
-			new_size |= new_size >> 1;
-			new_size |= new_size >> 2;
-			new_size |= new_size >> 4;
-			new_size |= new_size >> 8;
-			new_size |= new_size >> 16;
-			++new_size;
-			new_ptr = pool_realloc_memory(current_lp, old_size, new_size, LPS[current_lp]->in_buffer.base);
-			LPS[current_lp]->in_buffer.base = new_ptr;
-			LPS[current_lp]->in_buffer.size = new_size;
-			for(i=0;i<EXTRA_BUFFER_SIZE;i++){
-				if(LPS[current_lp]->in_buffer.extra_buffer[i]==NULL)
-					break;
-				block_size = MARK_AS_NOT_IN_USE(*((unsigned*) (LPS[current_lp]->in_buffer.extra_buffer[i]))) + 2*sizeof(unsigned);
-				memcpy(new_ptr + actual_offset, LPS[current_lp]->in_buffer.extra_buffer[i], block_size); //copio anche header e footer
-				actual_offset += block_size;
-				#ifdef HAVE_NUMA
-				numa_free(LPS[current_lp]->in_buffer.extra_buffer[i], block_size); //automaticamente fa il round up al page size
-				#else
-				rsfree(LPS[current_lp]->in_buffer.extra_buffer[i]);
-				#endif
-				LPS[current_lp]->in_buffer.extra_buffer[i]=NULL; 
-			}
-			//adeguo la nuova free_list con gestione LIFO (se non sono già al limite)
-			if(actual_offset<LPS[current_lp]->in_buffer.size){
-				unsigned residual_size = LPS[current_lp]->in_buffer.size - actual_offset - 2 * sizeof(unsigned); //al netto di h e f
-				coalesce(actual_offset, actual_offset + residual_size + sizeof(unsigned), residual_size, current_lp);
-			}
-
-			atomic_set(&LPS[current_lp]->in_buffer.extra_buffer_size_in_use, 0);
-			spin_unlock(&LPS[current_lp]->in_buffer.lock);
-		}
-		
+		process_extra_buffer(current_lp);
 		
 		// Process the event
 		timer event_timer;

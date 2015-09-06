@@ -157,6 +157,7 @@ unsigned split(unsigned addr, unsigned size, unsigned lid);
 void coalesce(unsigned,unsigned,unsigned,unsigned);
 void delete_from_free_list(unsigned, unsigned);
 unsigned use_extra_buffer(unsigned size, unsigned lid, void* event_content);
+void process_extra_buffer(unsigned lid);
 
 /* Functions invoked by other modules */
 extern void communication_init(void);
