@@ -173,7 +173,6 @@ void process_bottom_halves(void) {
 	msg_t *matched_msg;
 
 	for(i = 0; i < n_prc_per_thread; i++) {
-
 		while((msg_to_process = (msg_t *)get_BH(LPS_bound[i]->lid)) != NULL) {
 
 			lid_receiver = msg_to_process->receiver;
@@ -221,10 +220,6 @@ void process_bottom_halves(void) {
 						}
 						
 						if(matched_msg->size > 0){
-							if(matched_msg->payload_offset >= LPS[matched_msg->receiver]->in_buffer.size){
-								printf("payload_offset=%u, size=%u, extra_buffer[0]=%p\n", matched_msg->payload_offset, LPS[matched_msg->receiver]->in_buffer.size, LPS[matched_msg->receiver]->in_buffer.extra_buffer);
-								rootsim_error(true, "(queues)Il messaggio è ancora nell'extra buffer... non dovrebbe accadere\n");
-							}
 							spin_lock(&LPS[matched_msg->receiver]->in_buffer.lock);
 							dealloca_memoria_ingoing_buffer(matched_msg->receiver, matched_msg->payload_offset);
 							spin_unlock(&LPS[matched_msg->receiver]->in_buffer.lock);

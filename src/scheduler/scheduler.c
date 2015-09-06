@@ -184,10 +184,12 @@ static void LP_main_loop(void *args) {
 	int i = 0;
 
 	while(true) {
-		current_evt_buffer=NULL;
-		
-		//extra buffer process;
-		process_extra_buffer(current_lp);
+		if(atomic_read(&LPS[current_lp]->in_buffer.extra_buffer_size_in_use)!=0){
+			spin_lock(&LPS[current_lp]->in_buffer.lock);
+			process_extra_buffer(current_lp);
+			spin_unlock(&LPS[current_lp]->in_buffer.lock);
+		}
+
 		
 		// Process the event
 		timer event_timer;

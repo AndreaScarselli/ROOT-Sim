@@ -507,7 +507,7 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 //	while(atomic_read(&LPS[lid]->in_buffer.reallocation_flag)!=0);
 	if(payload_offset>=LPS[lid]->in_buffer.size)
-		rootsim_error(true, "(dealloca)il messaggio si trova ancora nell'extra buffer. Questo non dovrebbe accadere\n");
+		process_extra_buffer(lid);
 	unsigned header_offset = payload_offset-sizeof(unsigned); //lavorare con questo.
 	unsigned size = MARK_AS_NOT_IN_USE(HEADER_OF(header_offset,lid));	//potrebbe essere diversa da message_size se abbiamo "arrotondato" le dimensioni del blocco
 	unsigned footer_offset = header_offset + size + sizeof(unsigned); //di quello che va eliminato
@@ -601,11 +601,10 @@ void coalesce(unsigned header, unsigned footer, unsigned size, unsigned lid){
 	LPS[lid]->in_buffer.first_free = header;
 }
 
-
+//atomic needed
 void process_extra_buffer(unsigned lid)  {
 	int i;
 	if(atomic_read(&LPS[lid]->in_buffer.extra_buffer_size_in_use)!=0){
-		spin_lock(&LPS[lid]->in_buffer.lock);
 		void* 	 new_ptr = NULL;
 		unsigned old_size = LPS[lid]->in_buffer.size;
 		unsigned actual_offset = old_size;
@@ -645,6 +644,5 @@ void process_extra_buffer(unsigned lid)  {
 			coalesce(actual_offset, actual_offset + residual_size + sizeof(unsigned), residual_size, lid);
 		}
 		atomic_set(&LPS[lid]->in_buffer.extra_buffer_size_in_use, 0);
-		spin_unlock(&LPS[lid]->in_buffer.lock);
 	}	
 }
