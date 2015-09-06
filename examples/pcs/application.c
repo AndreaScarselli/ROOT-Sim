@@ -14,7 +14,7 @@ unsigned int complete_calls = COMPLETE_CALLS;
 
 void ProcessEvent(unsigned int me, simtime_t now, int event_type, event_content_type *event_content, unsigned int size, void *ptr) {	
 			
-//	printf("event_type is %d\n", event_type);		
+//	printf("event_type is %d, timestamp=%f, event_content is %p, size=%u, state=%p\n", event_type, now, event_content,size,ptr);		
 	
 	unsigned int w;
 

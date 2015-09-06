@@ -71,8 +71,11 @@ void fossil_collection(unsigned int lid, simtime_t time_barrier) {
 	//libero la memoria usata per il payload
 	spin_lock(&LPS[lid]->in_buffer.lock);
 	while(actual!=NULL){
-		if(actual->size>0)
+		if(actual->size>0){
+			if(actual->payload_offset>= LPS[actual->receiver]->in_buffer.size)
+				rootsim_error(true, "Il messaggio è ancora nell'extra buffer... non dovrebbe accadere\n");
 			dealloca_memoria_ingoing_buffer(actual->receiver, actual->payload_offset);
+		}
 		actual = list_prev(actual);
 	}
 	spin_unlock(&LPS[lid]->in_buffer.lock);

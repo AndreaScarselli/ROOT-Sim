@@ -121,12 +121,12 @@ void ParallelScheduleNewEvent(unsigned int gid_receiver, simtime_t timestamp, un
 		event.rendezvous_mark = current_evt->rendezvous_mark;
 	}
 
-	if (event_content != NULL && event_size>0) {
+	if(event_content != NULL && event_size>0) {
 		spin_lock(&LPS[event.receiver]->in_buffer.lock);
-		event.payload_offset = alloca_memoria_ingoing_buffer(event.receiver, event_size);
-		//controlla se non abbiamo scritto nell'extra buffer
+		event.payload_offset = alloca_memoria_ingoing_buffer(event.receiver, event_size, event_content);
 		if(event.payload_offset==NO_MEM)
 			rootsim_error(true, "non c'è più memoria disponibile nell'extra buffer");
+		//controlla se non abbiamo scritto nell'extra buffer
 		if(event.payload_offset < LPS[event.receiver]->in_buffer.size)
 			memcpy(LPS[event.receiver]->in_buffer.base + event.payload_offset, event_content, event_size);
 		spin_unlock(&LPS[event.receiver]->in_buffer.lock);
@@ -361,46 +361,29 @@ void send_outgoing_msgs(unsigned int lid) {
 	LPS[lid]->outgoing_buffer.size = 0;
 }
 
-//@return il primo offset del nuovo blocco (che corrisponde alla size precedente). 
-/*
-unsigned richiedi_altra_memoria(unsigned lid){
-	unsigned ret = LPS[lid]->in_buffer.size[0];
-	//quando questa viene chiamta quella maggiore è gia andata al posto 0!!
-	unsigned new_size = LPS[lid]->in_buffer.size[0] * INGOING_BUFFER_GROW_FACTOR;
-	pool_release_memory(lid, LPS[lid]->in_buffer.base[1]);
-	LPS[lid]->in_buffer.base[1] = pool_get_memory(lid, new_size);
-	LPS[lid]->in_buffer.size[1] = new_size;
-	return ret;
-}*/
-
 //@param size dimensione richiesta PER IL MESSAGGIO (e non per il blocco!)
+//@param event_content da usare solo se scrivo nell'extra buffer
 //@return l'offset per il PAYLOAD! (e quindi spiazzato della dimensione dell'header rispetto al blocco)
-unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size){
+unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size, void* event_content){
 	
 	unsigned actual;
 	unsigned succ;
 	unsigned new_off;
 	unsigned new_size;
-	int ret;
+	unsigned ret;
 
 	//devo allocare almeno una cosa di dimensione sizeof(PREV_FREE) + sizeof(succ_free)
 	if(size<2*sizeof(unsigned))
 		size = 2*sizeof(unsigned);
 start:
 	if(IS_NOT_AVAILABLE(LPS[lid]->in_buffer.first_free,lid)){
-		if(atomic_read(&LPS[lid]->in_buffer.reallocation_flag)==0){
-			atomic_inc_x86(&LPS[lid]->in_buffer.presence_counter);
-			return use_extra_buffer(size, lid);
-		}
-		else{
-			//è in corso una riallocazione, aspetta che finisce e poi riprova
-			while(atomic_read(&LPS[lid]->in_buffer.reallocation_flag)!=0);
-			goto start;
-		}
+		ret = use_extra_buffer(size, lid, event_content);
+		return ret;
 	}
+	
 	actual = LPS[lid]->in_buffer.first_free;
 	
-	if(HEADER_OF(actual,lid)>=size){
+	if(FREE_SIZE(actual,lid)>=size){
 		//in questo caso prendo da split il valore di ritorno che il nuovo ff.
 		LPS[lid]->in_buffer.first_free = split(actual, size, lid);
 		return actual+sizeof(unsigned);
@@ -409,15 +392,8 @@ start:
 	while(true){
 		succ = NEXT_FREE_BLOCK(actual,lid);
 		if(IS_NOT_AVAILABLE(succ,lid)){
-			if(atomic_read(&LPS[lid]->in_buffer.reallocation_flag)==0){
-				atomic_inc_x86(&LPS[lid]->in_buffer.presence_counter);
-				return use_extra_buffer(size, lid);
-			}
-			else{
-				//è in corso una riallocazione, aspetta che finisce e poi riprova
-				while(atomic_read(&LPS[lid]->in_buffer.reallocation_flag)!=0);
-				goto start;
-			}
+			ret = use_extra_buffer(size, lid, event_content);
+			return ret;
 		}
 		if(FREE_SIZE(succ,lid)>=size){
 			(void)split(succ, size, lid);
@@ -432,8 +408,11 @@ start:
 //side effect: diminuisce il presence counter
 //bisogna fare in modo che se il destinatario sta eseguendo concorrentemente la riallocazione questa funzione
 //non deve essere chiamata... quando il destinatario rialloca devono stare tutti fermi.
-unsigned use_extra_buffer(unsigned size, unsigned lid){
+unsigned use_extra_buffer(unsigned size, unsigned lid, void* event_content){
 	void* ptr;
+	/** questo offset al momento è "fittizio". Questo offset sarà quello giusto quando
+	 ** l'extra_buffer sarà spostato nell'ingoing buffer!
+	 **/
 	unsigned offset = LPS[lid]->in_buffer.size;
 	int i;
 	atomic_add_x86(&LPS[lid]->in_buffer.extra_buffer_size_in_use, size+2*sizeof(unsigned));
@@ -444,18 +423,17 @@ unsigned use_extra_buffer(unsigned size, unsigned lid){
 	#endif
 	//METTO HEADER E FOOTER
 	*(unsigned*)ptr = MARK_AS_IN_USE(size);
+	memcpy(ptr+sizeof(unsigned),event_content,size);
 	*(unsigned*)(ptr+sizeof(unsigned)+size) = MARK_AS_IN_USE(size);
 	//cerco il primo blocco libero
 	for(i=0;i<EXTRA_BUFFER_SIZE;i++){
 		if(CAS_x86(&LPS[lid]->in_buffer.extra_buffer[i], NULL, ptr) == true){
-			atomic_dec_x86(&LPS[lid]->in_buffer.presence_counter);
 			return offset + sizeof(unsigned);
 		}
-		else
-			//offset maggiorato della dimensione del blocco + dimensione di header e footer
-			offset+= ( (*(unsigned*)(LPS[lid]->in_buffer.extra_buffer[i])) + 2 * sizeof(unsigned));
+		else{
+			offset+= ( (MARK_AS_NOT_IN_USE(*(unsigned*)(LPS[lid]->in_buffer.extra_buffer[i]))) + 2 * sizeof(unsigned));
+		}
 	}
-	atomic_dec_x86(&LPS[lid]->in_buffer.presence_counter);
 	return NO_MEM;
 }
 
@@ -464,8 +442,7 @@ unsigned use_extra_buffer(unsigned size, unsigned lid){
 //@return l'addr del successivo blocco libero oppure IN_USE_FLAG se non c'è un successivo blocco libero
 unsigned split(unsigned addr, unsigned size, unsigned lid){
 	
-	while(atomic_read(&LPS[lid]->in_buffer.reallocation_flag)!=0);
-	atomic_inc_x86(&LPS[lid]->in_buffer.presence_counter);
+//	while(atomic_read(&LPS[lid]->in_buffer.reallocation_flag)!=0);
 	
 	//aggiungo 2 unsigned perchè size è al netto degli header
 	unsigned splitted = addr + size + 2 * sizeof(unsigned);
@@ -522,17 +499,15 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 	*HEADER_ADDRESS_OF(addr,lid) = MARK_AS_IN_USE(size);
 	*FOOTER_ADDRESS_OF(addr,size,lid) = MARK_AS_IN_USE(size);
 		
-	atomic_dec_x86(&LPS[lid]->in_buffer.presence_counter);
 	return ret;
 }
 
 //atomic needed!
 //@param payload_offset offset nell'ingoing buffer del payload del blocco da liberare
 void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
-	while(atomic_read(&LPS[lid]->in_buffer.reallocation_flag)!=0);
-	atomic_inc_x86(&LPS[lid]->in_buffer.presence_counter);
+//	while(atomic_read(&LPS[lid]->in_buffer.reallocation_flag)!=0);
 	if(payload_offset>=LPS[lid]->in_buffer.size)
-		rootsim_error(true, "il messaggio si trova ancora nell'extra buffer. Questo non dovrebbe accadere");
+		rootsim_error(true, "(dealloca)il messaggio si trova ancora nell'extra buffer. Questo non dovrebbe accadere\n");
 	unsigned header_offset = payload_offset-sizeof(unsigned); //lavorare con questo.
 	unsigned size = MARK_AS_NOT_IN_USE(HEADER_OF(header_offset,lid));	//potrebbe essere diversa da message_size se abbiamo "arrotondato" le dimensioni del blocco
 	unsigned footer_offset = header_offset + size + sizeof(unsigned); //di quello che va eliminato
@@ -593,14 +568,10 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 		delete_from_free_list(succ_header_offset,lid);
 		coalesce(prev_header_offset,succ_footer_offset,size+succ_size+prev_size+4*sizeof(unsigned),lid);
 	}
-	atomic_dec_x86(&LPS[lid]->in_buffer.presence_counter);
 }
 
 //@param to_delete blocco da eliminare dalla free_list
 void delete_from_free_list(unsigned to_delete, unsigned lid){
-//	fprintf(stderr, "to_delete is %u\n", to_delete);
-//	fprintf(stderr, "buffer size is %u\n", LPS[lid]->in_buffer.size);
-//	fprintf(stderr, "il contenuto è %u\n", HEADER_OF(to_delete,lid));
 	if(to_delete==LPS[lid]->in_buffer.first_free)
 		LPS[lid]->in_buffer.first_free = NEXT_FREE_BLOCK(LPS[lid]->in_buffer.first_free,lid);
 

@@ -184,40 +184,35 @@ static void LP_main_loop(void *args) {
 	int i = 0;
 
 	while(true) {
+		current_evt_buffer=NULL;
 		
 		//extra buffer process;
-		if(LPS[current_lp]->in_buffer.extra_buffer[0]!=NULL){
-			puts("in process");
-			void* new_ptr = NULL;
+		if(atomic_read(&LPS[current_lp]->in_buffer.extra_buffer_size_in_use)!=0){
+			spin_lock(&LPS[current_lp]->in_buffer.lock);
+			void* 	 new_ptr = NULL;
 			unsigned old_size = LPS[current_lp]->in_buffer.size;
 			unsigned actual_offset = old_size;
 			unsigned new_size = 0;
 			unsigned block_size = 0;
 			unsigned extra_in_use;
-			atomic_set(&LPS[current_lp]->in_buffer.reallocation_flag,1);
-			while(atomic_read(&LPS[current_lp]->in_buffer.presence_counter)!=0);
+//			atomic_set(&LPS[current_lp]->in_buffer.reallocation_flag,1);
+			//ora sono in sezione critica
 			extra_in_use = atomic_read(&LPS[current_lp]->in_buffer.extra_buffer_size_in_use);
-			new_size = LPS[current_lp]->in_buffer.size + extra_in_use;
+			new_size = old_size + extra_in_use + MIN_BLOCK_DIMENSION;
 			//round up new_size
-			--new_size;
 			new_size |= new_size >> 1;
 			new_size |= new_size >> 2;
 			new_size |= new_size >> 4;
 			new_size |= new_size >> 8;
 			new_size |= new_size >> 16;
 			++new_size;
-			//ora sono in sezione critica
 			new_ptr = pool_realloc_memory(current_lp, old_size, new_size, LPS[current_lp]->in_buffer.base);
 			LPS[current_lp]->in_buffer.base = new_ptr;
 			LPS[current_lp]->in_buffer.size = new_size;
 			for(i=0;i<EXTRA_BUFFER_SIZE;i++){
 				if(LPS[current_lp]->in_buffer.extra_buffer[i]==NULL)
 					break;
-//				fprintf(stderr, "block size is %u\n", block_size);
 				block_size = MARK_AS_NOT_IN_USE(*((unsigned*) (LPS[current_lp]->in_buffer.extra_buffer[i]))) + 2*sizeof(unsigned);
-//				fprintf(stderr, "new_ptr is %p, actual_offset is %u, size is %u\n", new_ptr, actual_offset, LPS[current_lp]->in_buffer.size);
-//				fprintf(stderr, "contiene %u\n", (*((unsigned*) (LPS[current_lp]->in_buffer.extra_buffer[i]))));
-//				fprintf(stderr, "LPS[current_lp]->in_buffer.extra_buffer[i]=%p, block_size=%u\n", LPS[current_lp]->in_buffer.extra_buffer[i], block_size);
 				memcpy(new_ptr + actual_offset, LPS[current_lp]->in_buffer.extra_buffer[i], block_size); //copio anche header e footer
 				actual_offset += block_size;
 				#ifdef HAVE_NUMA
@@ -226,18 +221,17 @@ static void LP_main_loop(void *args) {
 				rsfree(LPS[current_lp]->in_buffer.extra_buffer[i]);
 				#endif
 				LPS[current_lp]->in_buffer.extra_buffer[i]=NULL; 
-
 			}
 			//adeguo la nuova free_list con gestione LIFO (se non sono già al limite)
 			if(actual_offset<LPS[current_lp]->in_buffer.size){
 				unsigned residual_size = LPS[current_lp]->in_buffer.size - actual_offset - 2 * sizeof(unsigned); //al netto di h e f
-				//*HEADER_ADDRESS_OF(actual_offset,current_lp) = residual_size;
-				//*FOOTER_ADDRESS_OF(actual_offset,current_lp) = residual_size;
 				coalesce(actual_offset, actual_offset + residual_size + sizeof(unsigned), residual_size, current_lp);
 			}
+
 			atomic_set(&LPS[current_lp]->in_buffer.extra_buffer_size_in_use, 0);
-			atomic_set(&LPS[current_lp]->in_buffer.reallocation_flag,0);
+			spin_unlock(&LPS[current_lp]->in_buffer.lock);
 		}
+		
 		
 		// Process the event
 		timer event_timer;
@@ -245,15 +239,22 @@ static void LP_main_loop(void *args) {
 
 		switch_to_application_mode();
 		
-		//devo copiarlo altrimenti magari durante l'esecuzione dell'evento viene spostato e succedono disastri
 		if(current_evt->size>0){
-			current_evt_buffer=rsalloc(current_evt->size);
-//			fprintf(stderr, "seconda\n");
+			if(current_evt->payload_offset>= LPS[current_evt->receiver]->in_buffer.size)
+				rootsim_error(true, "---Il messaggio è ancora nell'extra buffer... non dovrebbe accadere\n");
+			current_evt_buffer=rsalloc(current_evt->size);			
+			
+			//la riallocazione la può fare solo chi fa questa memcpy.. non serve bloccare tutto
+			//questo lock c'è solo per disperazione
+			spin_lock(&LPS[current_evt->receiver]->in_buffer.lock);
 			memcpy(current_evt_buffer, LPS[current_lp]->in_buffer.base + current_evt->payload_offset, current_evt->size);
+			spin_unlock(&LPS[current_evt->receiver]->in_buffer.lock);
+
 		}
 		
 		ProcessEvent[current_lp](LidToGid(current_lp), current_evt->timestamp, current_evt->type, 
 															current_evt_buffer, current_evt->size, current_state);
+
 		if(current_evt->size>0)
 			rsfree(current_evt_buffer);
 		
@@ -330,9 +331,8 @@ void initialize_LP(unsigned int lp) {
 /**	for(i=0;i<EXTRA_BUFFER_SIZE;i++)
 		LPS[lp]->in_buffer.extra_buffer[i]=NULL;
 */
-	atomic_set(&LPS[lp]->in_buffer.reallocation_flag, 0);
+//	atomic_set(&LPS[lp]->in_buffer.reallocation_flag, 0);
 	atomic_set(&LPS[lp]->in_buffer.extra_buffer_size_in_use, 0);
-	atomic_set(&LPS[lp]->in_buffer.presence_counter, 0); 
 	unsigned free_size = INGOING_BUFFER_INITIAL_SIZE - 2 * sizeof(unsigned);
 	LPS[lp]->in_buffer.base = pool_get_memory(LPS[lp]->lid, INGOING_BUFFER_INITIAL_SIZE);
 	//offset 0
@@ -396,7 +396,7 @@ void initialize_worker_thread(void) {
 		// Copy the relevant string pointers to the INIT event payload
 		if(model_parameters.size > 0) {
 			spin_lock(&LPS[init_event.receiver]->in_buffer.lock);
-			init_event.payload_offset = alloca_memoria_ingoing_buffer(init_event.receiver, model_parameters.size * sizeof(char *));
+			init_event.payload_offset = alloca_memoria_ingoing_buffer(init_event.receiver, model_parameters.size * sizeof(char *), model_parameters.arguments);
 			memcpy(LPS[init_event.receiver]->in_buffer.base + init_event.payload_offset,  model_parameters.arguments, model_parameters.size * sizeof(char *));
 			spin_unlock(&LPS[init_event.receiver]->in_buffer.lock);
 		}

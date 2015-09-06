@@ -222,7 +222,7 @@ void process_bottom_halves(void) {
 						
 						if(matched_msg->size > 0){
 							if(matched_msg->payload_offset>= LPS[matched_msg->receiver]->in_buffer.size)
-								rootsim_error(true, "Il messaggio è ancora nell'extra buffer... non dovrebbe accadere");
+								rootsim_error(true, "Il messaggio è ancora nell'extra buffer... non dovrebbe accadere\n");
 							spin_lock(&LPS[matched_msg->receiver]->in_buffer.lock);
 							dealloca_memoria_ingoing_buffer(matched_msg->receiver, matched_msg->payload_offset);
 							spin_unlock(&LPS[matched_msg->receiver]->in_buffer.lock);

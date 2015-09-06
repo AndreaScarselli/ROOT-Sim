@@ -77,8 +77,8 @@ enum _control_msgs {
 
 #define MAX_OUTGOING_MSG	50
 
-#define INGOING_BUFFER_INITIAL_SIZE ((unsigned)(1<<20) / (16)) //1MB
-//#define INGOING_BUFFER_INITIAL_SIZE ((unsigned) ((1<<20)	/ (256))) // TEST REALLOC
+//#define INGOING_BUFFER_INITIAL_SIZE ((unsigned)(1<<20)) //1MB
+#define INGOING_BUFFER_INITIAL_SIZE ((unsigned) ((1<<20)	/ (256))) // TEST REALLOC
 #define NO_MEM 0
 #define MEM_ASSIGNED 1
 #define INGOING_BUFFER_GROW_FACTOR (2)
@@ -117,7 +117,7 @@ typedef struct _ingoing_buffer{
 	unsigned 	size;
 	atomic_t 	extra_buffer_size_in_use; //per sapere quanto deve essere grande il nuovo buffer
 	spinlock_t 	lock;
-	atomic_t 	presence_counter; // presenza nell'utilizzo dell'extra buffer o del buffer, in tal caso non dobbiamo ancora riallocare
+//	atomic_t 	presence_counter; // presenza nell'utilizzo dell'extra buffer o del buffer, in tal caso non dobbiamo ancora riallocare
 	void* 		extra_buffer[EXTRA_BUFFER_SIZE];
 	void*		base;
 }ingoing_buffer;
@@ -150,13 +150,13 @@ typedef struct _wnd_buffer {
 extern void ParallelScheduleNewEvent(unsigned int, simtime_t, unsigned int, void *, unsigned int);
 
 
-unsigned alloca_memoria_ingoing_buffer(unsigned , unsigned);
+unsigned alloca_memoria_ingoing_buffer(unsigned , unsigned, void*);
 void dealloca_memoria_ingoing_buffer(unsigned, unsigned);
 //unsigned richiedi_altra_memoria(unsigned lid);
 unsigned split(unsigned addr, unsigned size, unsigned lid);
 void coalesce(unsigned,unsigned,unsigned,unsigned);
 void delete_from_free_list(unsigned, unsigned);
-unsigned use_extra_buffer(unsigned lid);
+unsigned use_extra_buffer(unsigned size, unsigned lid, void* event_content);
 
 /* Functions invoked by other modules */
 extern void communication_init(void);
