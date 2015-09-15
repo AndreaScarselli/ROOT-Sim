@@ -417,7 +417,7 @@ unsigned use_extra_buffer(unsigned size, unsigned lid, void* event_content){
 	int i;
 	atomic_add_x86(&LPS[lid]->in_buffer.extra_buffer_size_in_use, size+2*sizeof(unsigned));
 	#ifdef HAVE_NUMA
-	ptr = numa_alloc_onnode(size+2*sizeof(unsigned), 3); ///////////////////////////////////////////////////////
+	ptr = numa_alloc_onnode(size+2*sizeof(unsigned), get_numa_node(LPS[lid]->worker_thread)); 
 	#else
 	ptr = rsalloc(size+2*sizeof(unsigned));
 	#endif
