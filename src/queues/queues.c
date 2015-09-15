@@ -117,7 +117,7 @@ msg_t *advance_to_next_event(unsigned int lid) {
 		if (!list_empty(LPS[lid]->queue_in)) {
 			LPS[lid]->bound = list_head(LPS[lid]->queue_in);
 			spin_lock_x86(&LPS[lid]->in_buffer.lock);
-			if(LPS[lid]->bound->payload_offset>=PS[lid]->in_buffer.size)
+			if(LPS[lid]->bound->payload_offset>=LPS[lid]->in_buffer.size)
 			    process_extra_buffer(lid);
 			spin_unlock_x86(&LPS[lid]->in_buffer.lock);
 
@@ -128,7 +128,7 @@ msg_t *advance_to_next_event(unsigned int lid) {
 		if (list_next(LPS[lid]->bound) != NULL) {
 			LPS[lid]->bound = list_next(LPS[lid]->bound);
 			spin_lock_x86(&LPS[lid]->in_buffer.lock);
-			if(LPS[lid]->bound->payload_offset>=PS[lid]->in_buffer.size)
+			if(LPS[lid]->bound->payload_offset>=LPS[lid]->in_buffer.size)
 			    process_extra_buffer(lid);
 			spin_unlock_x86(&LPS[lid]->in_buffer.lock);
 		} else {
