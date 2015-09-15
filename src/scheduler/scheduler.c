@@ -184,11 +184,11 @@ static void LP_main_loop(void *args) {
 	int i = 0;
 
 	while(true) {
+		spin_lock(&LPS[current_lp]->in_buffer.lock);
 		if(atomic_read(&LPS[current_lp]->in_buffer.extra_buffer_size_in_use)!=0){
-			spin_lock(&LPS[current_lp]->in_buffer.lock);
 			process_extra_buffer(current_lp);
-			spin_unlock(&LPS[current_lp]->in_buffer.lock);
 		}
+    	spin_unlock(&LPS[current_lp]->in_buffer.lock);
 
 		
 		// Process the event
