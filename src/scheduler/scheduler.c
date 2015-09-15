@@ -202,11 +202,7 @@ static void LP_main_loop(void *args) {
 				rootsim_error(true, "(LP_MAIN_LOOP)Il messaggio è ancora nell'extra buffer... non dovrebbe accadere\n");
 			current_evt_buffer=rsalloc(current_evt->size);			
 			
-			//la riallocazione la può fare solo chi fa questa memcpy.. non serve bloccare tutto
-			//questo lock c'è solo per disperazione
-			spin_lock(&LPS[current_evt->receiver]->in_buffer.lock);
 			memcpy(current_evt_buffer, LPS[current_lp]->in_buffer.base + current_evt->payload_offset, current_evt->size);
-			spin_unlock(&LPS[current_evt->receiver]->in_buffer.lock);
 
 		}
 		
