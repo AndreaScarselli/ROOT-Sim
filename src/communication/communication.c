@@ -506,6 +506,7 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 //@param payload_offset offset nell'ingoing buffer del payload del blocco da liberare
 void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 //	while(atomic_read(&LPS[lid]->in_buffer.reallocation_flag)!=0);
+	return;
 	if(payload_offset>=LPS[lid]->in_buffer.size)
 		process_extra_buffer(lid);
 	unsigned header_offset = payload_offset-sizeof(unsigned); //lavorare con questo.
@@ -533,12 +534,7 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 		succ_header = IN_USE_FLAG;
 		succ_header_offset = IN_USE_FLAG;
 	}
-	
-	///DUE RIGHE DA ELIMINARE
-	unsigned new_block_size;
-	coalesce(header_offset,footer_offset,size,lid);
 
-	/**
 	//sono IN_USE_FLAG se ce li ho messi io perchè sono fuori dai bordi!!
 	if(IS_IN_USE(prev_footer)){
 		if(IS_IN_USE(succ_header)){
@@ -573,7 +569,6 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 		delete_from_free_list(succ_header_offset,lid);
 		coalesce(prev_header_offset,succ_footer_offset,size+succ_size+prev_size+4*sizeof(unsigned),lid);
 	}
-	*/
 }
 
 //@param to_delete blocco da eliminare dalla free_list
