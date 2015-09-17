@@ -505,7 +505,6 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 //@param payload_offset offset nell'ingoing buffer del payload del blocco da liberare
 void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 //	while(atomic_read(&LPS[lid]->in_buffer.reallocation_flag)!=0);
-	return;
 	if(payload_offset>=LPS[lid]->in_buffer.size)
 		process_extra_buffer(lid);
 	unsigned header_offset = payload_offset-sizeof(unsigned); //lavorare con questo.
@@ -572,7 +571,6 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 
 //@param to_delete blocco da eliminare dalla free_list
 void delete_from_free_list(unsigned to_delete, unsigned lid){
-	fprintf(stderr,"sto per deallocare %u con una size di %u\n", to_delete, LPS[lid]->in_buffer.size);
 	if(to_delete==LPS[lid]->in_buffer.first_free)
 		LPS[lid]->in_buffer.first_free = NEXT_FREE_BLOCK(LPS[lid]->in_buffer.first_free,lid);
 
