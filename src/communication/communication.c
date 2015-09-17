@@ -413,7 +413,6 @@ unsigned use_extra_buffer(unsigned size, unsigned lid, void* event_content){
 	/** questo offset al momento è "fittizio". Questo offset sarà quello giusto quando
 	 ** l'extra_buffer sarà spostato nell'ingoing buffer!
 	 **/
-	 puts("extra");
 	unsigned offset = LPS[lid]->in_buffer.size;
 	int i;
 	atomic_add_x86(&LPS[lid]->in_buffer.extra_buffer_size_in_use, size+2*sizeof(unsigned));
@@ -606,6 +605,7 @@ void coalesce(unsigned header, unsigned footer, unsigned size, unsigned lid){
 //atomic needed
 void process_extra_buffer(unsigned lid)  {
 	int i;
+	printf("lid %u, processing extra\n", lid);
 	if(atomic_read(&LPS[lid]->in_buffer.extra_buffer_size_in_use)!=0){
 		void* 	 new_ptr = NULL;
 		unsigned old_size = LPS[lid]->in_buffer.size;
