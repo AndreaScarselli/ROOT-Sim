@@ -413,6 +413,7 @@ unsigned use_extra_buffer(unsigned size, unsigned lid, void* event_content){
 	/** questo offset al momento è "fittizio". Questo offset sarà quello giusto quando
 	 ** l'extra_buffer sarà spostato nell'ingoing buffer!
 	 **/
+	 puts("extra");
 	unsigned offset = LPS[lid]->in_buffer.size;
 	int i;
 	atomic_add_x86(&LPS[lid]->in_buffer.extra_buffer_size_in_use, size+2*sizeof(unsigned));
@@ -487,7 +488,7 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 		//devo cambiare il prev_free a ret e dire al prev di addr che il suo succ è ora ret
 		//devo inoltre dire a ret che il suo precedente è quello di addr (se addr ha un precedente libero)
 		if(ret!=IN_USE_FLAG)
-				memcpy(PREV_FREE_BLOCK_ADDRESS(ret,lid),PREV_FREE_BLOCK_ADDRESS(addr,lid),sizeof(unsigned));
+			memcpy(PREV_FREE_BLOCK_ADDRESS(ret,lid),PREV_FREE_BLOCK_ADDRESS(addr,lid),sizeof(unsigned));
 		if(IS_AVAILABLE(PREV_FREE_BLOCK(addr,lid),lid))
 			//va bene anche per ret=IN_USE.. in questo caso gli diciamo che non ha più un successivo
 			memcpy(NEXT_FREE_BLOCK_ADDRESS(PREV_FREE_BLOCK(addr,lid),lid), &ret, sizeof(unsigned));
@@ -532,7 +533,12 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 		succ_header = IN_USE_FLAG;
 		succ_header_offset = IN_USE_FLAG;
 	}
+	
+	///DUE RIGHE DA ELIMINARE
 	unsigned new_block_size;
+	coalesce(header_offset,footer_offset,size,lid);
+
+	/**
 	//sono IN_USE_FLAG se ce li ho messi io perchè sono fuori dai bordi!!
 	if(IS_IN_USE(prev_footer)){
 		if(IS_IN_USE(succ_header)){
@@ -567,10 +573,12 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 		delete_from_free_list(succ_header_offset,lid);
 		coalesce(prev_header_offset,succ_footer_offset,size+succ_size+prev_size+4*sizeof(unsigned),lid);
 	}
+	*/
 }
 
 //@param to_delete blocco da eliminare dalla free_list
 void delete_from_free_list(unsigned to_delete, unsigned lid){
+	fprintf(stderr,"sto per deallocare %u con una size di %u\n", to_delete, LPS[lid]->in_buffer.size);
 	if(to_delete==LPS[lid]->in_buffer.first_free)
 		LPS[lid]->in_buffer.first_free = NEXT_FREE_BLOCK(LPS[lid]->in_buffer.first_free,lid);
 
