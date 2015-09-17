@@ -594,7 +594,7 @@ void delete_from_free_list(unsigned to_delete, unsigned lid){
 void coalesce(unsigned header, unsigned footer, unsigned size, unsigned lid){
 	bzero(PAYLOAD_OF(header,lid),size);
 	*HEADER_ADDRESS_OF(header, lid) = size;
-	*FOOTER_ADDRESS_OF(header, size, lid) = size;
+	*(unsigned*) (LPS[lid]->in_buffer.base + footer) = size;
 	if(IS_AVAILABLE(LPS[lid]->in_buffer.first_free,lid))
 		memcpy(PREV_FREE_BLOCK_ADDRESS(LPS[lid]->in_buffer.first_free,lid), &header, sizeof(unsigned));
 	*NEXT_FREE_BLOCK_ADDRESS(header,lid) = LPS[lid]->in_buffer.first_free;
@@ -605,7 +605,6 @@ void coalesce(unsigned header, unsigned footer, unsigned size, unsigned lid){
 //atomic needed
 void process_extra_buffer(unsigned lid)  {
 	int i;
-	printf("lid %u, processing extra\n", lid);
 	if(atomic_read(&LPS[lid]->in_buffer.extra_buffer_size_in_use)!=0){
 		void* 	 new_ptr = NULL;
 		unsigned old_size = LPS[lid]->in_buffer.size;
