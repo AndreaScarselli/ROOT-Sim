@@ -177,6 +177,7 @@ void send_antimessages(unsigned int lid, simtime_t after_simtime) {
 		msg.send_time = anti_msg->send_time;
 		msg.mark = anti_msg->mark;
 		msg.message_kind = negative;
+		msg.size=0;
 
 		Send(&msg);
 
