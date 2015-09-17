@@ -486,12 +486,11 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 			ret = IN_USE_FLAG;
 		//devo cambiare il prev_free a ret e dire al prev di addr che il suo succ è ora ret
 		//devo inoltre dire a ret che il suo precedente è quello di addr (se addr ha un precedente libero)
-		if(IS_AVAILABLE(PREV_FREE_BLOCK(addr,lid),lid)){
-			if(ret!=IN_USE_FLAG)
+		if(ret!=IN_USE_FLAG)
 				memcpy(PREV_FREE_BLOCK_ADDRESS(ret,lid),PREV_FREE_BLOCK_ADDRESS(addr,lid),sizeof(unsigned));
+		if(IS_AVAILABLE(PREV_FREE_BLOCK(addr,lid),lid))
 			//va bene anche per ret=IN_USE.. in questo caso gli diciamo che non ha più un successivo
 			memcpy(NEXT_FREE_BLOCK_ADDRESS(PREV_FREE_BLOCK(addr,lid),lid), &ret, sizeof(unsigned));
-		}
 	
 	}
 	
