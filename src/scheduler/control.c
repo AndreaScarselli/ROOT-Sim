@@ -47,6 +47,7 @@ void unblock_synchronized_objects(unsigned int lid) {
 		control_msg.send_time = lvt(lid);
 		control_msg.message_kind = positive;
 		control_msg.rendezvous_mark = LPS[lid]->wait_on_rendezvous;
+		control_msg.size = 0;
 
 		Send(&control_msg);
 	}
@@ -74,8 +75,9 @@ void rollback_control_message(unsigned int lid, simtime_t simtime) {
                 control_antimessage.receiver = msg->sender;
                 control_antimessage.timestamp = msg->timestamp;
                 control_antimessage.send_time = msg->send_time;
-		control_antimessage.rendezvous_mark = msg->rendezvous_mark;
+				control_antimessage.rendezvous_mark = msg->rendezvous_mark;
                 control_antimessage.message_kind = other;
+                control_antimessage.size = 0;
 
                 Send(&control_antimessage);
 
@@ -218,6 +220,7 @@ bool process_control_msg(msg_t *msg) {
 			control_msg.send_time = msg->timestamp;
 			control_msg.message_kind = positive;
 			control_msg.rendezvous_mark = msg->rendezvous_mark;
+			control_msg.size = 0;
 			Send(&control_msg);
 			break;
 

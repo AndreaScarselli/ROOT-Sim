@@ -448,7 +448,7 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 	unsigned splitted = addr + size + 2 * sizeof(unsigned);
 	unsigned addr_size = FREE_SIZE(addr,lid);
 	unsigned splitted_size;
-	int ret = 0;
+	unsigned ret = 0;
 	
 	if(addr_size-size!=0){ //non può essere negativo perchè so che addr può contenere size
 		splitted_size = addr_size - size;		
