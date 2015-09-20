@@ -71,17 +71,18 @@ void rollback_control_message(unsigned int lid, simtime_t simtime) {
 		// Control antimessage
 		bzero(&control_antimessage, sizeof(msg_t));
 		control_antimessage.type = RENDEZVOUS_ROLLBACK;
-                control_antimessage.sender = msg->receiver;
-                control_antimessage.receiver = msg->sender;
-                control_antimessage.timestamp = msg->timestamp;
-                control_antimessage.send_time = msg->send_time;
-				control_antimessage.rendezvous_mark = msg->rendezvous_mark;
-                control_antimessage.message_kind = other;
-                control_antimessage.size = 0;
+        control_antimessage.sender = msg->receiver;
+        control_antimessage.receiver = msg->sender;
+        control_antimessage.timestamp = msg->timestamp;
+        control_antimessage.send_time = msg->send_time;
+		control_antimessage.rendezvous_mark = msg->rendezvous_mark;
+        control_antimessage.message_kind = other;
+        control_antimessage.size = 0;
 
-                Send(&control_antimessage);
+        Send(&control_antimessage);
 
 		msg_prev = list_prev(msg);
+		fprintf(stderr, "msg has size %u\n", msg->size);
 		list_delete_by_content(lid, LPS[lid]->rendezvous_queue, msg);
 		msg = msg_prev;
 	}

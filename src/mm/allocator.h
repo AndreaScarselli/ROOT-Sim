@@ -95,7 +95,7 @@ int lock(int);
 int unlock(int);
 void set_BH_map(mem_map* );
 int init_BH(void);
-int insert_BH(int , void*);
+int insert_BH(int , void*, int);
 void* get_BH(int);
 
 

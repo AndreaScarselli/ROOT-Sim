@@ -159,7 +159,7 @@ void insert_bottom_half(msg_t *msg) {
 
 	unsigned int lid = GidToLid(msg->receiver);
 
-	insert_BH(lid, msg);
+	insert_BH(lid, msg, sizeof(msg_t));
 	#ifdef HAVE_PREEMPTION
 	update_min_in_transit(LPS[lid]->worker_thread, msg->timestamp);
 	#endif

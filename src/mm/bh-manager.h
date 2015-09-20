@@ -27,11 +27,9 @@
 
 #include <core/core.h>
 
-#define MAX_MSG_SIZE 	sizeof(msg_t)
-#define BH_PAGES		2000
+#define MAX_MSG_SIZE sizeof(msg_t)
+#define BH_PAGES	2000
 #define BH_SIZE      	(BH_PAGES * PAGE_SIZE) //this is in bytes
-#define MAX_BH 			(int)BH_SIZE / sizeof(msg_t)
 
 void *get_buffer(int, int);
 void switch_bh(int);
-
