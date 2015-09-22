@@ -369,17 +369,13 @@ unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size, void* event_
 	
 	unsigned actual;
 	unsigned succ;
-	unsigned new_off;
-	unsigned new_size;
-	unsigned ret;
 
 	//devo allocare almeno una cosa di dimensione sizeof(PREV_FREE) + sizeof(succ_free)
 	if(size<2*sizeof(unsigned))
 		size = 2*sizeof(unsigned);
 start:
 	if(IS_NOT_AVAILABLE(LPS[lid]->in_buffer.first_free,lid)){
-		ret = use_extra_buffer(size, lid, event_content);
-		return ret;
+		return use_extra_buffer(size, lid, event_content);
 	}
 	
 	actual = LPS[lid]->in_buffer.first_free;
@@ -393,8 +389,7 @@ start:
 	while(true){
 		succ = NEXT_FREE_BLOCK(actual,lid);
 		if(IS_NOT_AVAILABLE(succ,lid)){
-			ret = use_extra_buffer(size, lid, event_content);
-			return ret;
+			return use_extra_buffer(size, lid, event_content);
 		}
 		if(FREE_SIZE(succ,lid)>=size){
 			(void)split(succ, size, lid);
