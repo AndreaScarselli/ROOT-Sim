@@ -640,7 +640,4 @@ void process_extra_buffer(unsigned lid)  {
 		}
 		atomic_set(&LPS[lid]->in_buffer.extra_buffer_size_in_use, 0);
 	}	
-	else{
-		rootsim_error(false,"process_Extra_buffer chiamato ma il buffer è vuoto!");
-	}
 }
