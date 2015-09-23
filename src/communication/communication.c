@@ -130,7 +130,7 @@ void ParallelScheduleNewEvent(unsigned int gid_receiver, simtime_t timestamp, un
 		if(event.payload_offset < LPS[event.receiver]->in_buffer.size)
 			memcpy(LPS[event.receiver]->in_buffer.base + event.payload_offset, event_content, event_size);
 		else
-			printf("(%u) else! payload_offset=%u && buffer size=%u\n",lid, event.payload_offset, LPS[lid]->in_buffer.size);
+			printf("(%u) else! payload_offset=%u && buffer size=%u\n", event.receiver, event.payload_offset, LPS[event.receiver]->in_buffer.size);
 		spin_unlock(&LPS[event.receiver]->in_buffer.lock);
 	}
 
