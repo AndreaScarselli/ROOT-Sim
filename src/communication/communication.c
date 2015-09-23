@@ -382,6 +382,8 @@ start:
 	
 	if(FREE_SIZE(actual,lid)>=size){
 		//in questo caso prendo da split il valore di ritorno che il nuovo ff.
+		if(actual<0 || actual>LPS[lid]->in_buffer.size || IS_NOT_AVAILABLE(actual,lid))
+			printf("(%u) occhio ad actual!!\n", actual);
 		LPS[lid]->in_buffer.first_free = split(actual, size, lid);
 		return actual+sizeof(unsigned);
 	}
@@ -392,6 +394,8 @@ start:
 			return use_extra_buffer(size, lid, event_content);
 		}
 		if(FREE_SIZE(succ,lid)>=size){
+			if(succ<0 || succ>LPS[lid]->in_buffer.size || IS_NOT_AVAILABLE(succ,lid))
+				printf("(%u) occhio a succ!!\n",lid);
 			(void)split(succ, size, lid);
 			return succ+sizeof(unsigned);
 		}
