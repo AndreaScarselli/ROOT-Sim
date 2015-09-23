@@ -377,6 +377,7 @@ unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size, void* event_
 		size = 2*sizeof(unsigned);
 start:
 	if(IS_NOT_AVAILABLE(LPS[lid]->in_buffer.first_free,lid)){
+		printf("(%u) devo allocare una cosa di size %u\n", lid, size);
 		return use_extra_buffer(size, lid, event_content);
 	}
 	
@@ -393,6 +394,7 @@ start:
 	while(true){
 		succ = NEXT_FREE_BLOCK(actual,lid);
 		if(IS_NOT_AVAILABLE(succ,lid)){
+			printf("(%u) succ, devo allocare una cosa di size %u\n", lid, size);
 			return use_extra_buffer(size, lid, event_content);
 		}
 		if(FREE_SIZE(succ,lid)>=size){
@@ -497,6 +499,7 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 	
 	}
 	
+	LPS[lid]->in_buffer.really_in_use+= (size + 2*sizeof(unsigned));
 	//DEVO AGGIORNARE L'HEADER E IL FOOTER DEL BLOCCO CHE HO APPENA ALLOCATO. RICORDA ANCHE L'OR CON IN USE
 	*HEADER_ADDRESS_OF(addr,lid) = MARK_AS_IN_USE(size);
 	*FOOTER_ADDRESS_OF(addr,size,lid) = MARK_AS_IN_USE(size);
@@ -535,7 +538,7 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 		succ_header = IN_USE_FLAG;
 		succ_header_offset = IN_USE_FLAG;
 	}
-
+	LPS[lid]->in_buffer.really_in_use-=size;
 	//sono IN_USE_FLAG se ce li ho messi io perchè sono fuori dai bordi!!
 	if(IS_IN_USE(prev_footer)){
 		if(IS_IN_USE(succ_header)){
@@ -546,6 +549,7 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 		else{
 			//prev in uso e succ no
 			//caso2
+			LPS[lid]->in_buffer.really_in_use-=2*sizeof(unsigned);
 			succ_size = succ_header;
 			succ_footer_offset = succ_header_offset + sizeof(unsigned) + succ_size;
 			delete_from_free_list(succ_header_offset,lid);
@@ -555,6 +559,8 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 	else if(IS_IN_USE(succ_header)){
 		//succ in uso e prev no, escluso da prima
 		//caso3
+					LPS[lid]->in_buffer.really_in_use-=2*sizeof(unsigned);
+
 		prev_size = prev_footer;
 		prev_header_offset = prev_footer_offset - prev_size - sizeof(unsigned);
 		delete_from_free_list(prev_header_offset,lid);
@@ -562,6 +568,8 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 	}
 	else{
 		//nessuno in uso, caso 4
+					LPS[lid]->in_buffer.really_in_use-=4*sizeof(unsigned);
+
 		succ_size = succ_header;
 		prev_size = prev_footer;
 		succ_footer_offset = succ_header_offset + succ_size + sizeof(unsigned);
