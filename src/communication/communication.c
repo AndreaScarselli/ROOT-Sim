@@ -503,7 +503,7 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 	//DEVO AGGIORNARE L'HEADER E IL FOOTER DEL BLOCCO CHE HO APPENA ALLOCATO. RICORDA ANCHE L'OR CON IN USE
 	*HEADER_ADDRESS_OF(addr,lid) = MARK_AS_IN_USE(size);
 	*FOOTER_ADDRESS_OF(addr,size,lid) = MARK_AS_IN_USE(size);
-		
+	bzero(PAYLOAD_OF(addr,lid), size);	
 	return ret;
 }
 
