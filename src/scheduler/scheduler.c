@@ -197,16 +197,19 @@ static void LP_main_loop(void *args) {
 
 		switch_to_application_mode();
 		
+		if(current_evt->size>0){
 			if(current_evt->payload_offset>= LPS[current_evt->receiver]->in_buffer.size)
 				rootsim_error(true, "(LP_MAIN_LOOP)Il messaggio è ancora nell'extra buffer... non dovrebbe accadere\n");
 			current_evt_buffer=rsalloc(current_evt->size);			
 			
 			memcpy(current_evt_buffer, LPS[current_lp]->in_buffer.base + current_evt->payload_offset, current_evt->size);
 
+		}
 		
 		ProcessEvent[current_lp](LidToGid(current_lp), current_evt->timestamp, current_evt->type, 
 															current_evt_buffer, current_evt->size, current_state);
 
+		if(current_evt->size>0)
 			rsfree(current_evt_buffer);
 		
 		
