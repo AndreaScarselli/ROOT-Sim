@@ -129,8 +129,6 @@ void ParallelScheduleNewEvent(unsigned int gid_receiver, simtime_t timestamp, un
 		//controlla se non abbiamo scritto nell'extra buffer
 		if(event.payload_offset < LPS[event.receiver]->in_buffer.size)
 			memcpy(LPS[event.receiver]->in_buffer.base + event.payload_offset, event_content, event_size);
-		else
-			printf("(%u) else! payload_offset=%u && buffer size=%u\n",lid, event.payload_offset, LPS[lid]->in_buffer.size);
 		spin_unlock(&LPS[event.receiver]->in_buffer.lock);
 	}
 
@@ -415,7 +413,6 @@ unsigned use_extra_buffer(unsigned size, unsigned lid, void* event_content){
 	/** questo offset al momento è "fittizio". Questo offset sarà quello giusto quando
 	 ** l'extra_buffer sarà spostato nell'ingoing buffer!
 	 **/
-	printf("(%u) sta per utilizzare l'extra buffer che prima aveva size=%u\n", lid, LPS[lid]->in_buffer.size);
 	unsigned offset = LPS[lid]->in_buffer.size;
 	int i;
 	atomic_add_x86(&LPS[lid]->in_buffer.extra_buffer_size_in_use, size+2*sizeof(unsigned));
