@@ -113,7 +113,6 @@ enum _control_msgs {
 
 typedef struct _ingoing_buffer{
 //	atomic_t 	reallocation_flag;
-	unsigned 	really_in_use;
 	unsigned 	first_free;
 	unsigned 	size;
 	atomic_t 	extra_buffer_size_in_use; //per sapere quanto deve essere grande il nuovo buffer
