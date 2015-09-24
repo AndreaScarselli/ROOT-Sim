@@ -571,8 +571,6 @@ void dealloca_memoria_ingoing_buffer(unsigned lid, unsigned payload_offset){
 
 //@param to_delete blocco da eliminare dalla free_list
 void delete_from_free_list(unsigned to_delete, unsigned lid){
-	if(to_delete<0 || to_delete>LPS[lid]->in_buffer.size || IS_NOT_AVAILABLE(to_delete,lid))
-		printf("occhio a to delete!!\n");
 	if(to_delete==LPS[lid]->in_buffer.first_free)
 		LPS[lid]->in_buffer.first_free = NEXT_FREE_BLOCK(LPS[lid]->in_buffer.first_free,lid);
 
