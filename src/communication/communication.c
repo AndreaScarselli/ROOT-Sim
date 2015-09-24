@@ -417,7 +417,7 @@ unsigned use_extra_buffer(unsigned size, unsigned lid, void* event_content){
 	/** questo offset al momento è "fittizio". Questo offset sarà quello giusto quando
 	 ** l'extra_buffer sarà spostato nell'ingoing buffer!
 	 **/
-	printf("(%u) sta per utilizzare l'extra buffer che prima aveva size=%u e ne aveva occupato %u\n", lid, LPS[lid]->in_buffer.size, LPS[lid]->in_buffer.really_in_use);
+	printf("(%u) sta per utilizzare l'extra buffer che prima aveva size=%u\n", lid, LPS[lid]->in_buffer.size);
 	unsigned offset = LPS[lid]->in_buffer.size;
 	int i;
 	atomic_add_x86(&LPS[lid]->in_buffer.extra_buffer_size_in_use, size+2*sizeof(unsigned));
