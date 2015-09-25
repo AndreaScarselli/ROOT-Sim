@@ -121,7 +121,7 @@ void ParallelScheduleNewEvent(unsigned int gid_receiver, simtime_t timestamp, un
 		event.rendezvous_mark = current_evt->rendezvous_mark;
 	}
 
-	if(event_content != NULL && event_size>0) {
+	if(event_content != NULL) {
 		spin_lock(&LPS[event.receiver]->in_buffer.lock);
 		event.payload_offset = alloca_memoria_ingoing_buffer(event.receiver, event_size, event_content);
 		if(event.payload_offset==NO_MEM)
@@ -401,9 +401,6 @@ start:
 }
 
 //@return offset "fittizio", già al netto dell'header CON HEADER E FOOTER GIA' INSERITI
-//side effect: diminuisce il presence counter
-//bisogna fare in modo che se il destinatario sta eseguendo concorrentemente la riallocazione questa funzione
-//non deve essere chiamata... quando il destinatario rialloca devono stare tutti fermi.
 unsigned use_extra_buffer(unsigned size, unsigned lid, void* event_content){
 	void* ptr;
 	/** questo offset al momento è "fittizio". Questo offset sarà quello giusto quando
@@ -481,7 +478,7 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 		if(ret==IN_USE_FLAG || (ret>=LPS[lid]->in_buffer.size) || IS_IN_USE(HEADER_OF(ret,lid)))
 			ret = IN_USE_FLAG;
 		//devo cambiare il prev_free a ret e dire al prev di addr che il suo succ è ora ret
-		//devo inoltre dire a ret che il suo precedente è quello di addr (se addr ha un precedente libero)
+		//devo inoltre dire a ret che il suo precedente è quello di addr
 		if(ret!=IN_USE_FLAG)
 			memcpy(PREV_FREE_BLOCK_ADDRESS(ret,lid),PREV_FREE_BLOCK_ADDRESS(addr,lid),sizeof(unsigned));
 		if(IS_AVAILABLE(PREV_FREE_BLOCK(addr,lid),lid))
