@@ -371,7 +371,7 @@ unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size, void* event_
 	unsigned succ;
 
 	//devo allocare almeno una cosa di dimensione sizeof(PREV_FREE) + sizeof(succ_free)
-	if(size<2*sizeof(unsigned))
+	if(size < 2*sizeof(unsigned))
 		size = 2*sizeof(unsigned);
 start:
 	if(IS_NOT_AVAILABLE(LPS[lid]->in_buffer.first_free,lid)){
@@ -380,7 +380,7 @@ start:
 	
 	actual = LPS[lid]->in_buffer.first_free;
 	
-	if(FREE_SIZE(actual,lid)>=size){
+	if(FREE_SIZE(actual,lid) >= size){
 		//in questo caso prendo da split il valore di ritorno che il nuovo ff.
 		LPS[lid]->in_buffer.first_free = split(actual, size, lid);
 		return actual+sizeof(unsigned);
@@ -438,18 +438,19 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 //	while(atomic_read(&LPS[lid]->in_buffer.reallocation_flag)!=0);
 	
 	//aggiungo 2 unsigned perchè size è al netto degli header
-	unsigned splitted = addr + size + 2 * sizeof(unsigned);
+	unsigned splitted  = addr + size + 2 * sizeof(unsigned);
 	unsigned addr_size = FREE_SIZE(addr,lid);
 	unsigned splitted_size;
 	unsigned ret = 0;
 	
-	if(addr_size-size!=0){ //non può essere negativo perchè so che addr può contenere size
+	if(addr_size-size != 0){ //non può essere negativo perchè so che addr può contenere size
 		splitted_size = addr_size - size;		
 		
 		if(splitted_size<MIN_BLOCK_DIMENSION){
 			size = addr_size;
 			goto adegua_al_successivo;
 		}
+		
 		else{
 			//il posto per h e f ricordando che le size in H e F sono al netto dell'overhead
 			splitted_size-= 2*sizeof(unsigned);
@@ -469,6 +470,7 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 			}
 			ret = splitted;
 		}
+		
 	}
 	
 	//se splitted è troppo piccolo o non esiste proprio
@@ -490,7 +492,7 @@ unsigned split(unsigned addr, unsigned size, unsigned lid){
 	//DEVO AGGIORNARE L'HEADER E IL FOOTER DEL BLOCCO CHE HO APPENA ALLOCATO. RICORDA ANCHE L'OR CON IN USE
 	*HEADER_ADDRESS_OF(addr,lid) = MARK_AS_IN_USE(size);
 	*FOOTER_ADDRESS_OF(addr,size,lid) = MARK_AS_IN_USE(size);
-	bzero(PAYLOAD_OF(addr,lid), size);	
+//	bzero(PAYLOAD_OF(addr,lid), size);	
 	return ret;
 }
 
@@ -582,6 +584,7 @@ void delete_from_free_list(unsigned to_delete, unsigned lid){
 //@param footer offset del footer del nuovo blocco che si sta creando
 //@param size dimensione del nuovo blocco che si sta creando, al netto di header e footer
 //alloca un nuovo segmento e lo inserisce in testa nella free list
+//si può levare footer e lavorare solo con header e size.. appena risolvi il bug fallo
 void coalesce(unsigned header, unsigned footer, unsigned size, unsigned lid){
 	bzero(PAYLOAD_OF(header,lid),size);
 	*HEADER_ADDRESS_OF(header, lid) = size;

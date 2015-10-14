@@ -119,7 +119,7 @@ typedef struct _ingoing_buffer{
 	spinlock_t 	lock;
 //	atomic_t 	presence_counter; // presenza nell'utilizzo dell'extra buffer o del buffer, in tal caso non dobbiamo ancora riallocare
 	void* 		extra_buffer[EXTRA_BUFFER_SIZE];
-	void*		base;
+	char*		base;
 }ingoing_buffer;
 
 
