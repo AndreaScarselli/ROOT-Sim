@@ -373,7 +373,7 @@ unsigned alloca_memoria_ingoing_buffer(unsigned lid, unsigned size, void* event_
 	//devo allocare almeno una cosa di dimensione sizeof(PREV_FREE) + sizeof(succ_free)
 	if(size < 2*sizeof(unsigned))
 		size = 2*sizeof(unsigned);
-start:
+
 	if(IS_NOT_AVAILABLE(LPS[lid]->in_buffer.first_free,lid)){
 		return use_extra_buffer(size, lid, event_content);
 	}
@@ -402,7 +402,7 @@ start:
 
 //@return offset "fittizio", già al netto dell'header CON HEADER E FOOTER GIA' INSERITI
 unsigned use_extra_buffer(unsigned size, unsigned lid, void* event_content){
-	void* ptr;
+	char* ptr;
 	/** questo offset al momento è "fittizio". Questo offset sarà quello giusto quando
 	 ** l'extra_buffer sarà spostato nell'ingoing buffer!
 	 **/
@@ -420,7 +420,8 @@ unsigned use_extra_buffer(unsigned size, unsigned lid, void* event_content){
 	*(unsigned*)(ptr+sizeof(unsigned)+size) = MARK_AS_IN_USE(size);
 	//cerco il primo blocco libero
 	for(i=0;i<EXTRA_BUFFER_SIZE;i++){
-		if(CAS_x86(&LPS[lid]->in_buffer.extra_buffer[i], NULL, ptr) == true){
+		if(LPS[lid]->in_buffer.extra_buffer[i] == NULL){
+			LPS[lid]->in_buffer.extra_buffer[i] = ptr;
 			return offset + sizeof(unsigned);
 		}
 		else{
@@ -600,7 +601,7 @@ void coalesce(unsigned header, unsigned footer, unsigned size, unsigned lid){
 void process_extra_buffer(unsigned lid)  {
 	int i;
 	if(atomic_read(&LPS[lid]->in_buffer.extra_buffer_size_in_use)!=0){
-		void* 	 new_ptr = NULL;
+		char* 	 new_ptr = NULL;
 		unsigned old_size = LPS[lid]->in_buffer.size;
 		unsigned actual_offset = old_size;
 		unsigned new_size = 0;
