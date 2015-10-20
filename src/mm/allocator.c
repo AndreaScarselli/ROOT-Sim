@@ -38,7 +38,6 @@
 
 #include <mm/dymelor.h>
 #include <mm/allocator.h>
-#include <scheduler/process.h> 
 
 
 extern void *__real_malloc(size_t);
@@ -202,13 +201,13 @@ void* allocate_segment(unsigned int sobj, size_t size) {
 	AUDIT
 	printf("allocate segment: request for %ld bytes - actual allocation is of %d pages\n",size,numpages);
 
-    segment = (char*)mmap((void*)NULL,PAGE_SIZE*numpages, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, 0,0);
+        segment = (char*)mmap((void*)NULL,PAGE_SIZE*numpages, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, 0,0);
 
 	AUDIT
 	printf("allocate segment: actual allocation is at address %p\n",segment);
 
 	if (segment == MAP_FAILED) {
-		release_mdt_entry(sobj, mdt);
+		release_mdt_entry(sobj);
 		goto bad_allocate;
 	}
 
@@ -240,9 +239,9 @@ char* allocate_page(void) {
 
 char* allocate_mdt(void) {
 
-    char* page;
+        char* page;
 
-    page = allocate_pages(MDT_PAGES);
+        page = allocate_pages(MDT_PAGES);
 
 	return page;
 }
@@ -262,8 +261,7 @@ mdt_entry* get_new_mdt_entry(int sobj){
 
 	m_map->active += 1;
 
-	mdte = m_map->first_free;
-	m_map->first_free = (mdt_entry*)m_map->first_free->addr;
+	mdte = (mdt_entry*)m_map->base + m_map->active - 1 ;
 
 	return mdte;
 	
@@ -271,10 +269,10 @@ mdt_entry* get_new_mdt_entry(int sobj){
 	return NULL;
 }
 
-int release_mdt_entry(int sobj, mdt_entry* mdt){
+int release_mdt_entry(int sobj){
 	mem_map* m_map;
 		
-	if( sobj < 0 || sobj>=handled_sobjs ) return MDT_RELEASE_FAILURE; 
+	if( (sobj < 0)||(sobj>=handled_sobjs) ) return MDT_RELEASE_FAILURE; 
 
 	m_map = &maps[sobj]; 
 
@@ -283,12 +281,6 @@ int release_mdt_entry(int sobj, mdt_entry* mdt){
 	}
 
 	m_map->active -= 1;
-	
-	//GESTIONE DI TIPO LIFO
-	mdt->numpages = -1;
-	mdt->addr = (char*)m_map->first_free;
-	
-	m_map->first_free = mdt;
 
 	return SUCCESS; 
 
@@ -302,33 +294,14 @@ void *pool_get_memory(unsigned int lid, size_t size) {
 	return allocate_segment(lid, size);
 }
 
-void pool_release_memory(unsigned int lid, void *ptr) {
-	//il ptr che arriva qua è un ptr ad un segmento. devo prima trovare la mdt_entry ad esso associata.
-	int i;
-	
-	for(i=0; i < maps[lid].size; i++){
-		if((((mdt_entry*)maps[lid].base )+i)->addr == ptr){
-				munmap(ptr, (( (mdt_entry*)maps[lid].base )+i)-> numpages * PAGE_SIZE);
-				if(release_mdt_entry(lid, (((mdt_entry*)maps[lid].base )+i))==MDT_RELEASE_FAILURE)
-					rootsim_error(true, "MDT_RELEASE_FAILURE!\n");
-				break;
-		}
-	}
-	if(i==maps[lid].size)
-		rootsim_error(true, "Trying to release an addr that not compare in an mdt!");
-	
-}
 
-void* pool_realloc_memory(unsigned int lid, unsigned old_size, unsigned new_size, void* old_ptr){
-	void* new_ptr = pool_get_memory(lid, new_size);
-	memcpy(new_ptr, old_ptr, old_size);
-	pool_release_memory(lid, old_ptr);
-	return new_ptr;
+void pool_release_memory(unsigned int lid, void *ptr) {
+	// TODO
 }
 
 
 int allocator_init(unsigned int sobjs) {
-	unsigned int i, j;
+	unsigned int i;
 	char* addr;
 
 	if( (sobjs > MAX_SOBJS) )
@@ -342,13 +315,6 @@ int allocator_init(unsigned int sobjs) {
 		maps[i].base = addr;
 		maps[i].active = 0;
 		maps[i].size = MDT_ENTRIES;
-		maps[i].first_free = (mdt_entry*) addr;
-		for(j=0;j<MDT_ENTRIES-1;j++){
-			((maps[i].first_free) + j) -> addr = (char*)((maps[i].first_free) + j + 1);
-			((maps[i].first_free) + j) -> numpages = -1;
-		}
-		((mdt_entry*)(maps[i].first_free) + j) -> addr = NULL;
-		((mdt_entry*)(maps[i].first_free) + j) -> numpages = -1;
 		AUDIT
 		printf("INIT: sobj %d - base address is %p - active are %d - MDT size is %d\n",i,maps[i].base, maps[i].active, maps[i].size);
 	}

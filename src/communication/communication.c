@@ -599,6 +599,8 @@ void coalesce(unsigned header, unsigned footer, unsigned size, unsigned lid){
 
 //atomic needed
 void process_extra_buffer(unsigned lid)  {
+	exit(0);
+	/*
 	int i;
 	if(atomic_read(&LPS[lid]->in_buffer.extra_buffer_size_in_use)!=0){
 		char* 	 new_ptr = NULL;
@@ -640,5 +642,5 @@ void process_extra_buffer(unsigned lid)  {
 			coalesce(actual_offset, actual_offset + residual_size + sizeof(unsigned), residual_size, lid);
 		}
 		atomic_set(&LPS[lid]->in_buffer.extra_buffer_size_in_use, 0);
-	}	
+	}	*/
 }

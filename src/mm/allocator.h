@@ -87,7 +87,7 @@ mdt_entry* get_new_mdt_entry(int );
 int allocator_init(unsigned int);
 void* allocate_segment(unsigned int, size_t);
 void audit(void);
-int release_mdt_entry(int, mdt_entry*);
+int release_mdt_entry(int);
 void audit_map(unsigned int);
 void set_daemon_maps(mem_map *, map_move* );
 int init_move(int);
